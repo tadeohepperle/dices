@@ -33,8 +33,9 @@ impl Factor {
         match self {
             Factor::Constant(v) => Box::new(once((*v, Prob::from(1.0)))),
             Factor::FairDie { min, max } => {
-                let min = *min;
-                let max = *max;
+                assert!(max >= min);
+                let min: i64 = *min;
+                let max: i64 = *max;
                 let prob: Prob = Prob::new(1u64, (max - min + 1) as u64);
                 return Box::new((min..=max).map(move |e| (e, prob)));
             }
