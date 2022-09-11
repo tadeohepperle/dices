@@ -1,4 +1,5 @@
 use core::num;
+use std::collections::LinkedList;
 
 use super::factor::{Factor, Value};
 
@@ -39,17 +40,45 @@ impl InputSymbol {
 enum ChainElement {
     Factor(Factor),
     Input(InputSymbol),
+    Placeholder,
 }
 
 impl ChainElement {
-    fn isFactor(&self) -> bool {
+    fn is_factor(&self) -> bool {
         match self {
             ChainElement::Factor(_) => true,
-            ChainElement::Input(_) => false,
+            _ => false,
+        }
+    }
+
+    fn is_multiplication(&self) -> bool {
+        if let ChainElement::Input(b) = self {
+            if let InputSymbol::Multiply = *b {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn is_addition(&self) -> bool {
+        if let ChainElement::Input(b) = self {
+            if let InputSymbol::Add = *b {
+                return true;
+            }
+        }
+        false
+    }
+
+    // crashes if is not a factor
+    fn as_factor(self) -> Factor {
+        match self {
+            ChainElement::Factor(f) => f,
+            _ => panic!("not a factor"),
         }
     }
 }
 
+// max(1+3,5w3,(4+w6)*2) + 5*d6
 fn input_symbols_to_factor(symbols: Vec<InputSymbol>) -> Box<Factor> {
     let mut chain: Vec<ChainElement> = symbols
         .into_iter()
@@ -61,6 +90,19 @@ fn input_symbols_to_factor(symbols: Vec<InputSymbol>) -> Box<Factor> {
             i => ChainElement::Input(i),
         })
         .collect();
+
+    // merge any element directly multiplied with each other
+    // factor + * + factor --> multiplyfactor(fact,fact)
+    let mut i = 0;
+    while i < chain.len() - 2 {
+        if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
+            let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
+            let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
+            let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
+            chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
+        }
+        i += 1;
+    }
 
     todo!()
 }
