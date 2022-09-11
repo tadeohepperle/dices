@@ -1,1 +1,1 @@
-mod factor;
+pub mod factor;
