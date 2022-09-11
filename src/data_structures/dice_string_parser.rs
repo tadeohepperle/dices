@@ -1,7 +1,6 @@
 use core::num;
 
 use super::factor::{Factor, Value};
-use regex::Regex;
 
 // pub fn from_string(input: &str) -> Box<Factor> {
 //     /*
@@ -37,49 +36,33 @@ impl InputSymbol {
 }
 
 // either a factor or an inputSymbol
-enum ChainElement<'a> {
-    Factor(Factor, Option<&'a ChainElement<'a>>),
+enum ChainElement {
+    Factor(Factor),
     Input(InputSymbol),
 }
 
-fn input_symbols_to_factor(symbols: Vec<InputSymbol>) -> Box<Factor> {
-    // let mut chain: Vec<ChainElement> = symbols
-    //     .iter()
-    //     .map(|e| match e {
-    //         InputSymbol::FairDie { min, max } => ChainElement::Factor(Factor::FairDie {
-    //             min: *min,
-    //             max: *max,
-    //         }),
-    //         InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(*i)),
-    //         i => ChainElement::Input(*i),
-    //     })
-    //     .collect();
+impl ChainElement {
+    fn isFactor(&self) -> bool {
+        match self {
+            ChainElement::Factor(_) => true,
+            ChainElement::Input(_) => false,
+        }
+    }
+}
 
-    // for i in 0..chain.len() {}
+fn input_symbols_to_factor(symbols: Vec<InputSymbol>) -> Box<Factor> {
+    let mut chain: Vec<ChainElement> = symbols
+        .into_iter()
+        .map(|e| match e {
+            InputSymbol::FairDie { min, max } => {
+                ChainElement::Factor(Factor::FairDie { min: min, max: max })
+            }
+            InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
+            i => ChainElement::Input(i),
+        })
+        .collect();
 
     todo!()
-
-    // let len = symbols.len();
-
-    // return match len {
-    //     0 => panic!("length of input symbol vector is zero!"),
-    //     1 => {
-    //         let s = &symbols[0];
-    //         match s {
-    //             InputSymbol::FairDie { min, max } => Box::new(Factor::FairDie {
-    //                 min: *min,
-    //                 max: *max,
-    //             }),
-    //             InputSymbol::Constant(i) => Box::new(Factor::Constant(*i)),
-    //             _ => panic!("Cannot generate factor from single input symbol {:?}", s),
-    //         }
-    //     }
-    //     n => {
-    //         let levels: Vec<u32> = vec![];
-
-    //         todo!()
-    //     }
-    // };
 }
 
 fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
