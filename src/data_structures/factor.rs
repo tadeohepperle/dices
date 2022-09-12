@@ -1,19 +1,20 @@
 use std::{
     collections::HashMap,
-    iter::once,
     ops::{Add, Mul},
 };
 pub type Value = i64;
 pub type Prob = fraction::Fraction;
 type Distribution = Box<dyn Iterator<Item = (Value, Prob)>>;
+type DistributionHashMap = HashMap<Value, Prob>;
 
 pub enum Factor {
     Constant(Value),
     FairDie { min: Value, max: Value },
-    SumCompound(Box<Factor>, Box<Factor>),
-    ProductCompound(Box<Factor>, Box<Factor>),
-    MaxCompound(Box<Factor>, Box<Factor>),
-    MinCompound(Box<Factor>, Box<Factor>),
+    SumCompound(Vec<Box<Factor>>),
+    ProductCompound(Vec<Box<Factor>>),
+    MaxCompound(Vec<Box<Factor>>),
+    MinCompound(Vec<Box<Factor>>),
+    SampleSumCompound(Box<Factor>, Box<Factor>),
 }
 
 impl Factor {
@@ -29,41 +30,79 @@ impl Factor {
         self.distribution().collect()
     }
 
-    pub fn distribution(&self) -> Distribution {
+    fn distribution_hashmap(&self) -> DistributionHashMap {
         match self {
-            Factor::Constant(v) => Box::new(once((*v, Prob::from(1.0)))),
+            Factor::Constant(v) => {
+                let mut m = DistributionHashMap::new();
+                m.insert(*v, Prob::new(1u64, 1u64));
+                return m;
+            }
             Factor::FairDie { min, max } => {
                 assert!(max >= min);
                 let min: i64 = *min;
                 let max: i64 = *max;
                 let prob: Prob = Prob::new(1u64, (max - min + 1) as u64);
-                return Box::new((min..=max).map(move |e| (e, prob)));
+                let mut m = DistributionHashMap::new();
+                for v in min..=max {
+                    m.insert(v, prob);
+                }
+                return m;
             }
-            Factor::SumCompound(f1, f2) => Factor::convolute_distributions(f1, f2, |a, b| a + b),
-            Factor::ProductCompound(f1, f2) => {
-                Factor::convolute_distributions(f1, f2, |a, b| a * b)
+
+            Factor::SumCompound(vec) => {
+                let hashmaps = vec
+                    .iter()
+                    .map(|e| e.distribution_hashmap())
+                    .collect::<Vec<DistributionHashMap>>();
+                return Factor::convolute_hashmaps(hashmaps, |a, b| a + b);
             }
-            Factor::MaxCompound(f1, f2) => {
-                Factor::convolute_distributions(f1, f2, |a, b| std::cmp::max(a, b))
+            Factor::ProductCompound(vec) => {
+                let hashmaps = vec
+                    .iter()
+                    .map(|e| e.distribution_hashmap())
+                    .collect::<Vec<DistributionHashMap>>();
+                return Factor::convolute_hashmaps(hashmaps, |a, b| a * b);
             }
-            Factor::MinCompound(f1, f2) => {
-                Factor::convolute_distributions(f1, f2, |a, b| std::cmp::min(a, b))
+            Factor::MaxCompound(vec) => {
+                let hashmaps = vec
+                    .iter()
+                    .map(|e| e.distribution_hashmap())
+                    .collect::<Vec<DistributionHashMap>>();
+                return Factor::convolute_hashmaps(hashmaps, |a, b| std::cmp::max(a, b));
+            }
+            Factor::MinCompound(vec) => {
+                let hashmaps = vec
+                    .iter()
+                    .map(|e| e.distribution_hashmap())
+                    .collect::<Vec<DistributionHashMap>>();
+                return Factor::convolute_hashmaps(hashmaps, |a, b| std::cmp::min(a, b));
+            }
+            Factor::SampleSumCompound(f1, f2) => {
+                todo!();
             }
         }
     }
 
-    fn convolute_distributions(
-        f1: &Factor,
-        f2: &Factor,
+    pub fn distribution(&self) -> Distribution {
+        let mut distribution_vec = self
+            .distribution_hashmap()
+            .into_iter()
+            .collect::<Vec<(Value, Prob)>>();
+        distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        return Box::new(distribution_vec.into_iter());
+    }
+
+    fn convolute_two_hashmaps(
+        h1: &HashMap<Value, Prob>,
+        h2: &HashMap<Value, Prob>,
         operation: fn(Value, Value) -> Value,
-    ) -> Distribution {
-        // let mut m: HashMap<Value, Prob> = HashMap::new();
-        let mut m = HashMap::<Value, Prob>::new();
-        for (v1, p1) in f1.distribution() {
+    ) -> DistributionHashMap {
+        let mut m = DistributionHashMap::new();
+        for (v1, p1) in h1.iter() {
             // println!("loop1 v1:{} p1:{}", v1, p1);
-            for (v2, p2) in f2.distribution() {
+            for (v2, p2) in h2.iter() {
                 // println!("loop2 v2:{} p2:{}", v2, p2);
-                let v = operation(v1, v2);
+                let v = operation(*v1, *v2);
                 let p = p1 * p2;
                 if m.contains_key(&v) {
                     *m.get_mut(&v).unwrap() += p;
@@ -72,9 +111,23 @@ impl Factor {
                 }
             }
         }
-        let mut distribution_vec = m.into_iter().collect::<Vec<(Value, Prob)>>();
-        distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        return Box::new(distribution_vec.into_iter());
+        return m;
+    }
+
+    fn convolute_hashmaps(
+        hashmaps: Vec<DistributionHashMap>,
+        operation: fn(Value, Value) -> Value,
+    ) -> DistributionHashMap {
+        // let mut m = HashMap::<Value, Prob>::new();
+        let len = hashmaps.len();
+        if len <= 0 {
+            panic!("cannot convolute hashmaps from a zero element vector");
+        }
+        let mut convoluted_h = hashmaps[0].clone();
+        for i in 1..len {
+            convoluted_h = Factor::convolute_two_hashmaps(&convoluted_h, &hashmaps[i], operation);
+        }
+        convoluted_h
     }
 }
 
@@ -82,7 +135,7 @@ impl Mul for Box<Factor> {
     type Output = Box<Factor>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::ProductCompound(self, rhs));
+        return Box::new(Factor::ProductCompound(vec![self, rhs]));
     }
 }
 
@@ -90,6 +143,6 @@ impl Add for Box<Factor> {
     type Output = Box<Factor>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::SumCompound(self, rhs));
+        return Box::new(Factor::SumCompound(vec![self, rhs]));
     }
 }

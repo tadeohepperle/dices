@@ -1,6 +1,3 @@
-use core::num;
-use std::collections::LinkedList;
-
 use super::factor::{Factor, Value};
 
 // pub fn from_string(input: &str) -> Box<Factor> {
@@ -24,6 +21,7 @@ enum InputSymbol {
     Opening,
     MaxOpening,
     MinOpening,
+    SampleSum,
 }
 
 impl InputSymbol {
@@ -33,6 +31,21 @@ impl InputSymbol {
             Self::Constant(_) => true,
             _ => false,
         };
+    }
+
+    fn is_opening(&self) -> bool {
+        match self {
+            InputSymbol::MinOpening => true,
+            InputSymbol::MaxOpening => true,
+            InputSymbol::Opening => true,
+            _ => false,
+        }
+    }
+    fn is_closing(&self) -> bool {
+        match self {
+            InputSymbol::Closing => true,
+            _ => false,
+        }
     }
 }
 
@@ -78,31 +91,80 @@ impl ChainElement {
     }
 }
 
-// max(1+3,5w3,(4+w6)*2) + 5*d6
-fn input_symbols_to_factor(symbols: Vec<InputSymbol>) -> Box<Factor> {
-    let mut chain: Vec<ChainElement> = symbols
+pub fn string_to_factor(input: &str) -> Box<Factor> {
+    let symbols = string_to_input_symbols(input);
+    let mut chain_elements = input_symbols_to_chain_elements(symbols);
+    let factor = chain_elements_to_factor(&mut chain_elements);
+    factor
+}
+
+fn input_symbols_to_chain_elements(symbols: Vec<InputSymbol>) -> Vec<(ChainElement, u32)> {
+    let mut current_level: u32 = 0;
+    let mut chain: Vec<(ChainElement, u32)> = symbols
         .into_iter()
-        .map(|e| match e {
-            InputSymbol::FairDie { min, max } => {
-                ChainElement::Factor(Factor::FairDie { min: min, max: max })
+        .map(|e| {
+            if e.is_opening() {
+                current_level += 1;
             }
-            InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
-            i => ChainElement::Input(i),
+            let level = current_level;
+            if e.is_closing() {
+                current_level -= 1;
+            }
+
+            return (
+                match e {
+                    InputSymbol::FairDie { min, max } => {
+                        ChainElement::Factor(Factor::FairDie { min: min, max: max })
+                    }
+                    InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
+                    i => ChainElement::Input(i),
+                },
+                level,
+            );
         })
         .collect();
+    return chain;
+}
+
+// max(1+3,5w3,(4+w6)*2) + 5*d6
+fn chain_elements_to_factor(chain: &mut Vec<(ChainElement, u32)>) -> Box<Factor> {
+    let max_level: u32 = chain.iter().map(|e| e.1).max().unwrap();
+
+    let i = 0;
+    let mut range_option: Option<(usize, usize)> = None;
+    while i < chain.len() {
+        if chain[i].1 == max_level {
+            range_option = match range_option {
+                Some((start, end)) => Some((start, end + 1)),
+                None => Some((i, i + 1)),
+            }
+        } else {
+            if let Some((start, end)) = range_option {
+                let mut elements_for_new_factor = chain
+                    .splice(start..end, [(ChainElement::Placeholder, max_level)])
+                    .collect::<Vec<(ChainElement, u32)>>();
+                let new_factor = chain_elements_to_factor(&mut elements_for_new_factor);
+                let _ = std::mem::replace(
+                    &mut chain[start],
+                    (ChainElement::Factor(*new_factor), max_level - 1),
+                );
+            }
+        }
+    }
 
     // merge any element directly multiplied with each other
     // factor + * + factor --> multiplyfactor(fact,fact)
-    let mut i = 0;
-    while i < chain.len() - 2 {
-        if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
-            let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
-            let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
-            let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
-            chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
-        }
-        i += 1;
-    }
+
+    // let mut i = 0;
+    // while i < chain.len() - 2 {
+    //     if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
+    //         let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
+    //         let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
+    //         let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
+    //         chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
+    //     }
+    //     i += 1;
+    // }
 
     todo!()
 }
@@ -136,6 +198,7 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
             ')' => symbols.push(InputSymbol::Closing),
             ',' => symbols.push(InputSymbol::Comma),
             '*' => symbols.push(InputSymbol::Multiply),
+            'x' => symbols.push(InputSymbol::SampleSum),
             '+' => symbols.push(InputSymbol::Add),
             'd' => {
                 let mut num_char_vec: Vec<char> = vec![];
@@ -201,7 +264,7 @@ mod string_utils {
         *s = s.replace("w", "d");
 
         let re_dice_with_factor = Regex::new(r"(\d)d").unwrap();
-        *s = re_dice_with_factor.replace(s, "$1*d").to_string();
+        *s = re_dice_with_factor.replace(s, "$1xd").to_string();
     }
 }
 
@@ -212,7 +275,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn removing_whitespace() {
+    fn clean_string_test() {
         let mut input = r#" max(3w6)        "#.to_owned();
         string_utils::clean_string(&mut input);
         assert_eq!("M3*d6)", input);
