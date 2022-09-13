@@ -10,7 +10,7 @@ use super::factor::{Factor, Value};
 //     */
 // }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum InputSymbol {
     Constant(Value),
     FairDie { min: Value, max: Value },
@@ -49,53 +49,11 @@ impl InputSymbol {
     }
 }
 
-// either a factor or an inputSymbol
-enum ChainElement {
-    Factor(Factor),
-    Input(InputSymbol),
-    Placeholder,
-}
-
-impl ChainElement {
-    fn is_factor(&self) -> bool {
-        match self {
-            ChainElement::Factor(_) => true,
-            _ => false,
-        }
-    }
-
-    fn is_multiplication(&self) -> bool {
-        if let ChainElement::Input(b) = self {
-            if let InputSymbol::Multiply = *b {
-                return true;
-            }
-        }
-        false
-    }
-
-    fn is_addition(&self) -> bool {
-        if let ChainElement::Input(b) = self {
-            if let InputSymbol::Add = *b {
-                return true;
-            }
-        }
-        false
-    }
-
-    // crashes if is not a factor
-    fn as_factor(self) -> Factor {
-        match self {
-            ChainElement::Factor(f) => f,
-            _ => panic!("not a factor"),
-        }
-    }
-}
-
-pub fn string_to_factor(input: &str) -> Box<Factor> {
+pub fn string_to_factor(input: &str) -> Result<Factor, GraphBuildingError> {
     let symbols = string_to_input_symbols(input);
-    let mut chain_elements = input_symbols_to_chain_elements(symbols);
-    let factor = chain_elements_to_factor(&mut chain_elements);
-    factor
+    let graph_seq = input_symbols_to_graph_seq(symbols)?;
+    let factor = graph_seq_to_factor(graph_seq);
+    Ok(factor)
 }
 
 fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
@@ -187,7 +145,7 @@ enum GraphSeq {
     Undetermined(),
 }
 
-enum GraphBuildingError {
+pub enum GraphBuildingError {
     GraphSeqWithoutVec,
     AddSymbolInNonAddSequence,
     MulSymbolWithoutAnElementInCurrentSequence,
@@ -196,79 +154,39 @@ enum GraphBuildingError {
     CommaSymbolInAddSequence,
 }
 
-fn input_symbols_to_graph(symbols: Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
+fn input_symbols_to_graph_seq(symbols: Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
     todo!()
 }
 
-fn input_symbols_to_chain_elements(symbols: Vec<InputSymbol>) -> Vec<(ChainElement, u32)> {
-    let mut current_level: u32 = 0;
-    let mut chain: Vec<(ChainElement, u32)> = symbols
-        .into_iter()
-        .map(|e| {
-            if e.is_opening() {
-                current_level += 1;
-            }
-            let level = current_level;
-            if e.is_closing() {
-                current_level -= 1;
-            }
-
-            return (
-                match e {
-                    InputSymbol::FairDie { min, max } => {
-                        ChainElement::Factor(Factor::FairDie { min: min, max: max })
-                    }
-                    InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
-                    i => ChainElement::Input(i),
-                },
-                level,
-            );
-        })
-        .collect();
-    return chain;
+fn graph_seq_to_factor(g: GraphSeq) -> Factor {
+    todo!()
 }
 
-// max(1+3,5w3,(4+w6)*2) + 5*d6
-fn chain_elements_to_factor(chain: &mut Vec<(ChainElement, u32)>) -> Box<Factor> {
-    let max_level: u32 = chain.iter().map(|e| e.1).max().unwrap();
-
-    let i = 0;
-    let mut range_option: Option<(usize, usize)> = None;
-    while i < chain.len() {
-        if chain[i].1 == max_level {
-            range_option = match range_option {
-                Some((start, end)) => Some((start, end + 1)),
-                None => Some((i, i + 1)),
-            }
+fn partition_input_symbols_bracket_aware(
+    input_symbols: Vec<InputSymbol>,
+    sep_symbol: InputSymbol,
+) -> Vec<Vec<InputSymbol>> {
+    let mut bracket_level = 0;
+    let mut result: Vec<Vec<InputSymbol>> = vec![vec![]];
+    for i in input_symbols {
+        if (i == sep_symbol && bracket_level == 0) {
+            result.push(vec![]);
         } else {
-            if let Some((start, end)) = range_option {
-                let mut elements_for_new_factor = chain
-                    .splice(start..end, [(ChainElement::Placeholder, max_level)])
-                    .collect::<Vec<(ChainElement, u32)>>();
-                let new_factor = chain_elements_to_factor(&mut elements_for_new_factor);
-                let _ = std::mem::replace(
-                    &mut chain[start],
-                    (ChainElement::Factor(*new_factor), max_level - 1),
-                );
+            match result.last_mut() {
+                None => panic!("result has no last element"),
+                Some(last) => {
+                    last.push(i);
+                }
+            }
+            if i.is_opening() {
+                bracket_level += 1;
+            }
+            if i.is_closing() {
+                bracket_level -= 1;
             }
         }
     }
-
-    // merge any element directly multiplied with each other
-    // factor + * + factor --> multiplyfactor(fact,fact)
-
-    // let mut i = 0;
-    // while i < chain.len() - 2 {
-    //     if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
-    //         let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
-    //         let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
-    //         let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
-    //         chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
-    //     }
-    //     i += 1;
-    // }
-
-    todo!()
+    result
 }
 
 mod string_utils {
@@ -328,5 +246,42 @@ mod test {
             InputSymbol::Constant(3),
         ];
         assert_eq!(real, expected);
+    }
+    #[test]
+    fn partition_input_symbols_bracket_aware_test() {
+        // 5+3*6*max(3+4)+5
+        let symbols = vec![
+            InputSymbol::Constant(5),
+            InputSymbol::Add,
+            InputSymbol::Constant(3),
+            InputSymbol::Multiply,
+            InputSymbol::Constant(6),
+            InputSymbol::Multiply,
+            InputSymbol::MaxOpening,
+            InputSymbol::Constant(3),
+            InputSymbol::Add,
+            InputSymbol::Constant(4),
+            InputSymbol::Closing,
+            InputSymbol::Add,
+            InputSymbol::Constant(5),
+        ];
+        let expected = vec![
+            vec![InputSymbol::Constant(5)],
+            vec![
+                InputSymbol::Constant(3),
+                InputSymbol::Multiply,
+                InputSymbol::Constant(6),
+                InputSymbol::Multiply,
+                InputSymbol::MaxOpening,
+                InputSymbol::Constant(3),
+                InputSymbol::Add,
+                InputSymbol::Constant(4),
+                InputSymbol::Closing,
+            ],
+            vec![InputSymbol::Constant(5)],
+        ];
+
+        let res = partition_input_symbols_bracket_aware(symbols, InputSymbol::Add);
+        assert_eq!(res, expected);
     }
 }
