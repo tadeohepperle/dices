@@ -51,7 +51,7 @@ impl InputSymbol {
 
 pub fn string_to_factor(input: &str) -> Result<Factor, GraphBuildingError> {
     let symbols = string_to_input_symbols(input);
-    let graph_seq = input_symbols_to_graph_seq(symbols)?;
+    let graph_seq = input_symbols_to_graph_seq(&symbols)?;
     let factor = graph_seq_to_factor(graph_seq);
     Ok(factor)
 }
@@ -142,7 +142,6 @@ enum GraphSeq {
     Min(Vec<GraphSeq>),
     Max(Vec<GraphSeq>),
     SampleSum(Box<GraphSeq>, Box<GraphSeq>),
-    Undetermined(),
 }
 
 pub enum GraphBuildingError {
@@ -154,8 +153,32 @@ pub enum GraphBuildingError {
     CommaSymbolInAddSequence,
 }
 
-fn input_symbols_to_graph_seq(symbols: Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
+fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
+    let is_max_compound = symbols_indicate_max_compound(&symbols);
+    let is_min_compung = symbols_indicate_min_compound(&symbols);
+
+    let add_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
+    let add_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
+
     todo!()
+}
+
+fn symbols_indicate_max_compound(symbols: &Vec<InputSymbol>) -> bool {
+    if let Some(InputSymbol::MaxOpening) = symbols.first() {
+        if let Some(InputSymbol::Closing) = symbols.last() {
+            return true;
+        }
+    }
+    false
+}
+
+fn symbols_indicate_min_compound(symbols: &Vec<InputSymbol>) -> bool {
+    if let Some(InputSymbol::MinOpening) = symbols.first() {
+        if let Some(InputSymbol::Closing) = symbols.last() {
+            return true;
+        }
+    }
+    false
 }
 
 fn graph_seq_to_factor(g: GraphSeq) -> Factor {
@@ -163,19 +186,19 @@ fn graph_seq_to_factor(g: GraphSeq) -> Factor {
 }
 
 fn partition_input_symbols_bracket_aware(
-    input_symbols: Vec<InputSymbol>,
+    input_symbols: &Vec<InputSymbol>,
     sep_symbol: InputSymbol,
 ) -> Vec<Vec<InputSymbol>> {
     let mut bracket_level = 0;
     let mut result: Vec<Vec<InputSymbol>> = vec![vec![]];
     for i in input_symbols {
-        if (i == sep_symbol && bracket_level == 0) {
+        if *i == sep_symbol && bracket_level == 0 {
             result.push(vec![]);
         } else {
             match result.last_mut() {
                 None => panic!("result has no last element"),
                 Some(last) => {
-                    last.push(i);
+                    last.push(*i);
                 }
             }
             if i.is_opening() {
@@ -281,7 +304,7 @@ mod test {
             vec![InputSymbol::Constant(5)],
         ];
 
-        let res = partition_input_symbols_bracket_aware(symbols, InputSymbol::Add);
+        let res = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
         assert_eq!(res, expected);
     }
 }
