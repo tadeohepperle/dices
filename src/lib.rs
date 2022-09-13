@@ -68,6 +68,16 @@ mod tests {
         assert_eq!(d, unif(vec![0, 0, 1, 2]));
     }
 
+    #[test]
+    /// zero dice
+    fn sample_sum_convolute_4() {
+        let f1 = Factor::Constant(0);
+        let f2 = Factor::FairDie { min: 1, max: 6 };
+        let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let d = f.distribution_vec();
+        assert_eq!(d, unif(vec![0]));
+    }
+
     fn unif(v: Vec<Value>) -> Vec<(Value, Prob)> {
         let mut hashmap = DistributionHashMap::new();
         let l = v.len();

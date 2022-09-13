@@ -98,77 +98,6 @@ pub fn string_to_factor(input: &str) -> Box<Factor> {
     factor
 }
 
-fn input_symbols_to_chain_elements(symbols: Vec<InputSymbol>) -> Vec<(ChainElement, u32)> {
-    let mut current_level: u32 = 0;
-    let mut chain: Vec<(ChainElement, u32)> = symbols
-        .into_iter()
-        .map(|e| {
-            if e.is_opening() {
-                current_level += 1;
-            }
-            let level = current_level;
-            if e.is_closing() {
-                current_level -= 1;
-            }
-
-            return (
-                match e {
-                    InputSymbol::FairDie { min, max } => {
-                        ChainElement::Factor(Factor::FairDie { min: min, max: max })
-                    }
-                    InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
-                    i => ChainElement::Input(i),
-                },
-                level,
-            );
-        })
-        .collect();
-    return chain;
-}
-
-// max(1+3,5w3,(4+w6)*2) + 5*d6
-fn chain_elements_to_factor(chain: &mut Vec<(ChainElement, u32)>) -> Box<Factor> {
-    let max_level: u32 = chain.iter().map(|e| e.1).max().unwrap();
-
-    let i = 0;
-    let mut range_option: Option<(usize, usize)> = None;
-    while i < chain.len() {
-        if chain[i].1 == max_level {
-            range_option = match range_option {
-                Some((start, end)) => Some((start, end + 1)),
-                None => Some((i, i + 1)),
-            }
-        } else {
-            if let Some((start, end)) = range_option {
-                let mut elements_for_new_factor = chain
-                    .splice(start..end, [(ChainElement::Placeholder, max_level)])
-                    .collect::<Vec<(ChainElement, u32)>>();
-                let new_factor = chain_elements_to_factor(&mut elements_for_new_factor);
-                let _ = std::mem::replace(
-                    &mut chain[start],
-                    (ChainElement::Factor(*new_factor), max_level - 1),
-                );
-            }
-        }
-    }
-
-    // merge any element directly multiplied with each other
-    // factor + * + factor --> multiplyfactor(fact,fact)
-
-    // let mut i = 0;
-    // while i < chain.len() - 2 {
-    //     if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
-    //         let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
-    //         let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
-    //         let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
-    //         chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
-    //     }
-    //     i += 1;
-    // }
-
-    todo!()
-}
-
 fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
     let mut input = input.to_owned();
     string_utils::clean_string(&mut input);
@@ -246,6 +175,100 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
     }
 
     symbols
+}
+
+enum GraphSeq {
+    Atomic(Factor),
+    Add(Vec<GraphSeq>),
+    Mul(Vec<GraphSeq>),
+    Min(Vec<GraphSeq>),
+    Max(Vec<GraphSeq>),
+    SampleSum(Box<GraphSeq>, Box<GraphSeq>),
+    Undetermined(),
+}
+
+enum GraphBuildingError {
+    GraphSeqWithoutVec,
+    AddSymbolInNonAddSequence,
+    MulSymbolWithoutAnElementInCurrentSequence,
+    SampleSumSymbolWithoutAnElementInCurrentSequence,
+    SequenceHierarchyEmpty,
+    CommaSymbolInAddSequence,
+}
+
+fn input_symbols_to_graph(symbols: Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
+    todo!()
+}
+
+fn input_symbols_to_chain_elements(symbols: Vec<InputSymbol>) -> Vec<(ChainElement, u32)> {
+    let mut current_level: u32 = 0;
+    let mut chain: Vec<(ChainElement, u32)> = symbols
+        .into_iter()
+        .map(|e| {
+            if e.is_opening() {
+                current_level += 1;
+            }
+            let level = current_level;
+            if e.is_closing() {
+                current_level -= 1;
+            }
+
+            return (
+                match e {
+                    InputSymbol::FairDie { min, max } => {
+                        ChainElement::Factor(Factor::FairDie { min: min, max: max })
+                    }
+                    InputSymbol::Constant(i) => ChainElement::Factor(Factor::Constant(i)),
+                    i => ChainElement::Input(i),
+                },
+                level,
+            );
+        })
+        .collect();
+    return chain;
+}
+
+// max(1+3,5w3,(4+w6)*2) + 5*d6
+fn chain_elements_to_factor(chain: &mut Vec<(ChainElement, u32)>) -> Box<Factor> {
+    let max_level: u32 = chain.iter().map(|e| e.1).max().unwrap();
+
+    let i = 0;
+    let mut range_option: Option<(usize, usize)> = None;
+    while i < chain.len() {
+        if chain[i].1 == max_level {
+            range_option = match range_option {
+                Some((start, end)) => Some((start, end + 1)),
+                None => Some((i, i + 1)),
+            }
+        } else {
+            if let Some((start, end)) = range_option {
+                let mut elements_for_new_factor = chain
+                    .splice(start..end, [(ChainElement::Placeholder, max_level)])
+                    .collect::<Vec<(ChainElement, u32)>>();
+                let new_factor = chain_elements_to_factor(&mut elements_for_new_factor);
+                let _ = std::mem::replace(
+                    &mut chain[start],
+                    (ChainElement::Factor(*new_factor), max_level - 1),
+                );
+            }
+        }
+    }
+
+    // merge any element directly multiplied with each other
+    // factor + * + factor --> multiplyfactor(fact,fact)
+
+    // let mut i = 0;
+    // while i < chain.len() - 2 {
+    //     if chain[i].is_factor() && chain[i + 1].is_multiplication() && chain[i + 2].is_factor() {
+    //         let f1 = std::mem::replace(&mut chain[i], ChainElement::Placeholder).as_factor();
+    //         let f2 = std::mem::replace(&mut chain[i + 2], ChainElement::Placeholder).as_factor();
+    //         let new_factor = Factor::ProductCompound(Box::new(f1), Box::new(f2));
+    //         chain.splice(i..(i + 3), [ChainElement::Factor(new_factor)]);
+    //     }
+    //     i += 1;
+    // }
+
+    todo!()
 }
 
 mod string_utils {
