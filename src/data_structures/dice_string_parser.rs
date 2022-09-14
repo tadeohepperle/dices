@@ -13,7 +13,7 @@ use super::factor::{Factor, Value};
 // }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum InputSymbol {
+pub enum InputSymbol {
     Constant(Value),
     FairDie { min: Value, max: Value },
     Add,
