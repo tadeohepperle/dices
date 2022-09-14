@@ -264,30 +264,30 @@ fn graph_seq_to_factor(graph_seq: GraphSeq) -> Factor {
         GraphSeq::Add(vec) => {
             return Factor::SumCompound(
                 vec.into_iter()
-                    .map(move |g| Box::new(graph_seq_to_factor(g)))
-                    .collect::<Vec<Box<Factor>>>(),
+                    .map(move |g| graph_seq_to_factor(g))
+                    .collect::<Vec<Factor>>(),
             );
         }
         GraphSeq::Atomic(f) => f,
         GraphSeq::Mul(vec) => {
             return Factor::ProductCompound(
                 vec.into_iter()
-                    .map(move |g| Box::new(graph_seq_to_factor(g)))
-                    .collect::<Vec<Box<Factor>>>(),
+                    .map(move |g| graph_seq_to_factor(g))
+                    .collect::<Vec<Factor>>(),
             );
         }
         GraphSeq::Min(vec) => {
             return Factor::MinCompound(
                 vec.into_iter()
-                    .map(move |g| Box::new(graph_seq_to_factor(g)))
-                    .collect::<Vec<Box<Factor>>>(),
+                    .map(move |g| graph_seq_to_factor(g))
+                    .collect::<Vec<Factor>>(),
             );
         }
         GraphSeq::Max(vec) => {
             return Factor::MaxCompound(
                 vec.into_iter()
-                    .map(move |g| Box::new(graph_seq_to_factor(g)))
-                    .collect::<Vec<Box<Factor>>>(),
+                    .map(move |g| graph_seq_to_factor(g))
+                    .collect::<Vec<Factor>>(),
             );
         }
         GraphSeq::SampleSum(g1, g2) => {
@@ -486,9 +486,9 @@ mod test {
             ]);
             let factor = graph_seq_to_factor(graph);
             let expected_factor = Factor::MaxCompound(vec![
-                Box::new(Factor::Constant(1)),
-                Box::new(Factor::Constant(2)),
-                Box::new(Factor::Constant(3)),
+                Factor::Constant(1),
+                Factor::Constant(2),
+                Factor::Constant(3),
             ]);
             assert_eq!(factor, expected_factor);
         }
@@ -497,9 +497,9 @@ mod test {
         fn string_to_factor_test() {
             let factor = string_to_factor("max(1 ,2,3)  ").unwrap();
             let expected_factor = Factor::MaxCompound(vec![
-                Box::new(Factor::Constant(1)),
-                Box::new(Factor::Constant(2)),
-                Box::new(Factor::Constant(3)),
+                Factor::Constant(1),
+                Factor::Constant(2),
+                Factor::Constant(3),
             ]);
             assert_eq!(factor, expected_factor);
         }

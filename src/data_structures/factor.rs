@@ -11,10 +11,10 @@ pub type DistributionHashMap = HashMap<Value, Prob>;
 pub enum Factor {
     Constant(Value),
     FairDie { min: Value, max: Value },
-    SumCompound(Vec<Box<Factor>>),
-    ProductCompound(Vec<Box<Factor>>),
-    MaxCompound(Vec<Box<Factor>>),
-    MinCompound(Vec<Box<Factor>>),
+    SumCompound(Vec<Factor>),
+    ProductCompound(Vec<Factor>),
+    MaxCompound(Vec<Factor>),
+    MinCompound(Vec<Factor>),
     SampleSumCompound(Box<Factor>, Box<Factor>),
 }
 
@@ -171,7 +171,7 @@ impl Mul for Box<Factor> {
     type Output = Box<Factor>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::ProductCompound(vec![self, rhs]));
+        return Box::new(Factor::ProductCompound(vec![*self, *rhs]));
     }
 }
 
@@ -179,7 +179,7 @@ impl Add for Box<Factor> {
     type Output = Box<Factor>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::SumCompound(vec![self, rhs]));
+        return Box::new(Factor::SumCompound(vec![*self, *rhs]));
     }
 }
 

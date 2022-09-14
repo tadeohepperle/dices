@@ -13,7 +13,7 @@ mod tests {
     fn adding_distributions_coin_times_2() {
         let f1 = Factor::Constant(2);
         let f2 = Factor::FairDie { min: 0, max: 1 };
-        let f3 = Factor::ProductCompound(vec![Box::new(f1), Box::new(f2)]);
+        let f3 = Factor::ProductCompound(vec![f1, f2]);
         let d_vec = f3.distribution_vec();
         println!("{:?}", d_vec);
 
@@ -27,7 +27,7 @@ mod tests {
     fn adding_distributions_two_dice() {
         let f1 = Factor::FairDie { min: 1, max: 5 };
         let f2 = Factor::FairDie { min: 1, max: 5 };
-        let f3 = Factor::SumCompound(vec![Box::new(f1), Box::new(f2)]);
+        let f3 = Factor::SumCompound(vec![f1, f2]);
         let d_vec = f3.distribution_vec();
         println!("{:?}", d_vec);
         assert_eq!(d_vec[0], (2, Prob::new(1u64, 25u64)));
