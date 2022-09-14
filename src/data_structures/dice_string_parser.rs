@@ -77,7 +77,6 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
             },
         };
 
-        let flush = || {};
         match c {
             'M' => {
                 symbols.push(InputSymbol::MaxOpening);
@@ -127,7 +126,6 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
                     }
                 }
                 let n: String = num_char_vec.into_iter().collect();
-                println!("n is {n}");
                 let n: i64 = n.parse().unwrap();
                 symbols.push(InputSymbol::Constant(n));
             }
@@ -137,6 +135,7 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
     symbols
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum GraphSeq {
     Atomic(Factor),
     Add(Vec<GraphSeq>),
@@ -260,8 +259,44 @@ fn symbols_indicate_pure_bracket_compund(symbols: &Vec<InputSymbol>) -> bool {
     false
 }
 
-fn graph_seq_to_factor(g: GraphSeq) -> Factor {
-    todo!()
+fn graph_seq_to_factor(graph_seq: GraphSeq) -> Factor {
+    match graph_seq {
+        GraphSeq::Add(vec) => {
+            return Factor::SumCompound(
+                vec.into_iter()
+                    .map(move |g| Box::new(graph_seq_to_factor(g)))
+                    .collect::<Vec<Box<Factor>>>(),
+            );
+        }
+        GraphSeq::Atomic(f) => f,
+        GraphSeq::Mul(vec) => {
+            return Factor::ProductCompound(
+                vec.into_iter()
+                    .map(move |g| Box::new(graph_seq_to_factor(g)))
+                    .collect::<Vec<Box<Factor>>>(),
+            );
+        }
+        GraphSeq::Min(vec) => {
+            return Factor::MinCompound(
+                vec.into_iter()
+                    .map(move |g| Box::new(graph_seq_to_factor(g)))
+                    .collect::<Vec<Box<Factor>>>(),
+            );
+        }
+        GraphSeq::Max(vec) => {
+            return Factor::MaxCompound(
+                vec.into_iter()
+                    .map(move |g| Box::new(graph_seq_to_factor(g)))
+                    .collect::<Vec<Box<Factor>>>(),
+            );
+        }
+        GraphSeq::SampleSum(g1, g2) => {
+            return Factor::SampleSumCompound(
+                Box::new(graph_seq_to_factor(*g1)),
+                Box::new(graph_seq_to_factor(*g2)),
+            );
+        }
+    }
 }
 
 fn vec_without_last_and_first(vec: &Vec<InputSymbol>) -> Vec<InputSymbol> {
@@ -317,7 +352,9 @@ mod string_utils {
         *s = s.replace("w", "d");
 
         let re_dice_with_factor = Regex::new(r"(\d)d").unwrap();
-        *s = re_dice_with_factor.replace(s, "$1xd").to_string();
+        *s = re_dice_with_factor.replace(s, "$1/d").to_string();
+        *s = s.replace("/", "x");
+        // println!("{s}");
     }
 }
 
@@ -331,7 +368,7 @@ mod test {
     fn clean_string_test() {
         let mut input = r#" max(3w6)        "#.to_owned();
         string_utils::clean_string(&mut input);
-        assert_eq!("M3*d6)", input);
+        assert_eq!("M3xd6)", input);
     }
     #[test]
     fn string_to_input_symbols_1() {
@@ -347,10 +384,10 @@ mod test {
     }
     #[test]
     fn string_to_input_symbols_2() {
-        let real: Vec<InputSymbol> = string_to_input_symbols("4 w32 - 3");
+        let real: Vec<InputSymbol> = string_to_input_symbols("4 d32 - 3");
         let expected: Vec<InputSymbol> = vec![
             InputSymbol::Constant(4),
-            InputSymbol::Multiply,
+            InputSymbol::SampleSum,
             InputSymbol::FairDie { min: 1, max: 32 },
             InputSymbol::Add,
             InputSymbol::Constant(-1),
@@ -395,5 +432,89 @@ mod test {
 
         let res = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
         assert_eq!(res, expected);
+    }
+
+    mod graph_building {
+        use crate::data_structures::{
+            dice_string_parser::{
+                input_symbols_to_graph_seq, string_to_input_symbols, GraphSeq, InputSymbol,
+            },
+            factor::Factor,
+        };
+
+        #[test]
+        /// see if graph in constructed correctly
+        fn input_symbols_to_graph_seq_test() {
+            let input = "max(1,2,3)";
+            let symbols = string_to_input_symbols(input);
+            assert_eq!(
+                symbols,
+                vec![
+                    InputSymbol::MaxOpening,
+                    InputSymbol::Constant(1),
+                    InputSymbol::Comma,
+                    InputSymbol::Constant(2),
+                    InputSymbol::Comma,
+                    InputSymbol::Constant(3),
+                    InputSymbol::Closing
+                ]
+            );
+            let graph = input_symbols_to_graph_seq(&symbols).unwrap();
+            let expected_graph = GraphSeq::Max(vec![
+                GraphSeq::Atomic(Factor::Constant(1)),
+                GraphSeq::Atomic(Factor::Constant(2)),
+                GraphSeq::Atomic(Factor::Constant(3)),
+            ]);
+            assert_eq!(graph, expected_graph);
+        }
+    }
+
+    mod input_to_factor {
+        use crate::data_structures::{
+            dice_string_parser::{
+                graph_seq_to_factor, string_to_factor, test::input_to_factor, GraphSeq,
+            },
+            factor::Factor,
+        };
+
+        #[test]
+        fn graph_seq_to_factor_test() {
+            let graph = GraphSeq::Max(vec![
+                GraphSeq::Atomic(Factor::Constant(1)),
+                GraphSeq::Atomic(Factor::Constant(2)),
+                GraphSeq::Atomic(Factor::Constant(3)),
+            ]);
+            let factor = graph_seq_to_factor(graph);
+            let expected_factor = Factor::MaxCompound(vec![
+                Box::new(Factor::Constant(1)),
+                Box::new(Factor::Constant(2)),
+                Box::new(Factor::Constant(3)),
+            ]);
+            assert_eq!(factor, expected_factor);
+        }
+
+        #[test]
+        fn string_to_factor_test() {
+            let factor = string_to_factor("max(1 ,2,3)  ").unwrap();
+            let expected_factor = Factor::MaxCompound(vec![
+                Box::new(Factor::Constant(1)),
+                Box::new(Factor::Constant(2)),
+                Box::new(Factor::Constant(3)),
+            ]);
+            assert_eq!(factor, expected_factor);
+        }
+
+        // fn string_to_factor_test_2() {
+        //     let factor = string_to_factor("4*5+2*3").unwrap();
+        //     let expected_factor =
+        //         Factor::SumCompound(vec![Factor::ProductCompound(vec![Box::new(
+        //             Factor::Constant(1),
+        //         )])]);
+        //     assert_eq!(factor, expected_factor);
+
+        //     let factor2 = string_to_factor("26").unwrap();
+        //     let expected_factor_2 = Factor::Constant(26);
+        //     assert_eq!(factor2, expected_factor_2);
+        // }
     }
 }

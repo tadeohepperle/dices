@@ -7,6 +7,7 @@ pub type Prob = fraction::Fraction;
 type Distribution = Box<dyn Iterator<Item = (Value, Prob)>>;
 pub type DistributionHashMap = HashMap<Value, Prob>;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Factor {
     Constant(Value),
     FairDie { min: Value, max: Value },
