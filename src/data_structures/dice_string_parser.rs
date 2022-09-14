@@ -154,7 +154,7 @@ pub enum GraphBuildingError {
     SequenceHierarchyEmpty,
     CommaSymbolInAddSequence,
     MoreThan2ElementsUsedForSampleSum,
-    UnknownSyntaxError,
+    UnknownSyntaxError(Vec<InputSymbol>),
     OneInputSymbolButNotAtomic(InputSymbol),
 }
 
@@ -199,7 +199,7 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
         let sub_sequences = input_symbol_partitioning_to_sub_sequnces(add_partitioning)?;
         return Ok(GraphSeq::Add(sub_sequences));
     }
-    let mul_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
+    let mul_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Multiply);
     if mul_partitioning.len() >= 2 {
         let sub_sequences = input_symbol_partitioning_to_sub_sequnces(mul_partitioning)?;
         return Ok(GraphSeq::Mul(sub_sequences));
@@ -218,7 +218,8 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
             Box::new(sample_seq),
         ));
     }
-    return Err(GraphBuildingError::UnknownSyntaxError);
+    println!("{:?}", symbols);
+    return Err(GraphBuildingError::UnknownSyntaxError(symbols.clone()));
 }
 
 fn input_symbol_partitioning_to_sub_sequnces(
@@ -350,11 +351,9 @@ mod string_utils {
         *s = s.replace("max(", "M");
         *s = s.replace("min(", "m");
         *s = s.replace("w", "d");
-
         let re_dice_with_factor = Regex::new(r"(\d)d").unwrap();
-        *s = re_dice_with_factor.replace(s, "$1/d").to_string();
+        *s = re_dice_with_factor.replace_all(s, "$1/d").to_string();
         *s = s.replace("/", "x");
-        // println!("{s}");
     }
 }
 
@@ -504,17 +503,25 @@ mod test {
             assert_eq!(factor, expected_factor);
         }
 
-        // fn string_to_factor_test_2() {
-        //     let factor = string_to_factor("4*5+2*3").unwrap();
-        //     let expected_factor =
-        //         Factor::SumCompound(vec![Factor::ProductCompound(vec![Box::new(
-        //             Factor::Constant(1),
-        //         )])]);
-        //     assert_eq!(factor, expected_factor);
+        #[test]
+        fn string_to_factor_test_2() {
+            let factor = string_to_factor("4*5+2*3").unwrap();
+            let expected_factor = Factor::SumCompound(vec![
+                Factor::ProductCompound(vec![Factor::Constant(4), Factor::Constant(5)]),
+                Factor::ProductCompound(vec![Factor::Constant(2), Factor::Constant(3)]),
+            ]);
+            assert_eq!(factor, expected_factor);
 
-        //     let factor2 = string_to_factor("26").unwrap();
-        //     let expected_factor_2 = Factor::Constant(26);
-        //     assert_eq!(factor2, expected_factor_2);
-        // }
+            let factor2 = string_to_factor("26").unwrap();
+            let expected_factor_2 = Factor::Constant(26);
+            assert_eq!(factor2, expected_factor_2);
+        }
+
+        #[test]
+        fn string_to_factor_test_3() {
+            let factor = string_to_factor("min(8w5,8w5)+4").unwrap();
+            let max = factor.distribution_vec().iter().map(|e| e.0).max().unwrap();
+            assert_eq!(max, 44);
+        }
     }
 }
