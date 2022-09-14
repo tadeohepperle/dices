@@ -1,5 +1,10 @@
 mod data_structures;
 
+fn main() {
+    let i = 0;
+    println!("{}", i);
+}
+
 #[cfg(test)]
 mod tests {
     use crate::data_structures::factor::{DistributionHashMap, Factor, Prob, Value};
