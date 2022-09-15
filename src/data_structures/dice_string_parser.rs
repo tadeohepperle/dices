@@ -27,14 +27,6 @@ pub enum InputSymbol {
 }
 
 impl InputSymbol {
-    fn is_atomic(&self) -> bool {
-        return match &self {
-            Self::FairDie { min, max } => true,
-            Self::Constant(_) => true,
-            _ => false,
-        };
-    }
-
     fn is_opening(&self) -> bool {
         match self {
             InputSymbol::MinOpening => true,
@@ -470,10 +462,8 @@ mod test {
 
     mod input_to_factor {
         use crate::data_structures::{
-            dice_string_parser::{
-                graph_seq_to_factor, string_to_factor, test::input_to_factor, GraphSeq,
-            },
-            factor::{self, AggrValue, Factor},
+            dice_string_parser::{graph_seq_to_factor, string_to_factor, GraphSeq},
+            factor::{AggrValue, Factor},
         };
 
         #[test]

@@ -3,8 +3,6 @@ use std::{
     ops::{Add, Mul},
 };
 
-use fraction::GenericFraction;
-
 use super::dice_string_parser::{self, GraphBuildingError};
 pub type Value = i64;
 pub type Prob = fraction::Fraction;
