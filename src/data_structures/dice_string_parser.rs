@@ -298,7 +298,7 @@ fn vec_without_last_and_first(vec: &Vec<InputSymbol>) -> Vec<InputSymbol> {
         .rev()
         .skip(1)
         .rev()
-        .map(|e| e.clone())
+        .map(|e| *e)
         .collect::<Vec<InputSymbol>>()
 }
 
@@ -342,10 +342,10 @@ mod string_utils {
         s.retain(|c| PERMITTED_CHARACTERS.chars().into_iter().any(|c2| c == c2));
         *s = s.replace("max(", "M");
         *s = s.replace("min(", "m");
-        *s = s.replace("w", "d");
+        *s = s.replace('w', "d");
         let re_dice_with_factor = Regex::new(r"(\d)d").unwrap();
         *s = re_dice_with_factor.replace_all(s, "$1/d").to_string();
-        *s = s.replace("/", "x");
+        *s = s.replace('/', "x");
     }
 }
 

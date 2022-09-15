@@ -53,7 +53,7 @@ impl Factor {
             Factor::Constant(v) => {
                 let mut m = DistributionHashMap::new();
                 m.insert(*v, Prob::new(1u64, 1u64));
-                return m;
+                m
             }
             Factor::FairDie { min, max } => {
                 assert!(max >= min);
@@ -64,7 +64,7 @@ impl Factor {
                 for v in min..=max {
                     m.insert(v, prob);
                 }
-                return m;
+                m
             }
 
             Factor::SumCompound(vec) => {
@@ -72,35 +72,33 @@ impl Factor {
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                return convolute_hashmaps(&hashmaps, |a, b| a + b);
+                convolute_hashmaps(&hashmaps, |a, b| a + b)
             }
             Factor::ProductCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                return convolute_hashmaps(&hashmaps, |a, b| a * b);
+                convolute_hashmaps(&hashmaps, |a, b| a * b)
             }
             Factor::MaxCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                return convolute_hashmaps(&hashmaps, |a, b| std::cmp::max(a, b));
+                convolute_hashmaps(&hashmaps, std::cmp::max)
             }
             Factor::MinCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                return convolute_hashmaps(&hashmaps, |a, b| std::cmp::min(a, b));
+                convolute_hashmaps(&hashmaps, std::cmp::min)
             }
-            Factor::SampleSumCompound(f1, f2) => {
-                return sample_sum_convolute_two_hashmaps(
-                    f1.distribution_hashmap(),
-                    f2.distribution_hashmap(),
-                );
-            }
+            Factor::SampleSumCompound(f1, f2) => sample_sum_convolute_two_hashmaps(
+                f1.distribution_hashmap(),
+                f2.distribution_hashmap(),
+            ),
         }
     }
 
@@ -110,11 +108,11 @@ impl Factor {
             .into_iter()
             .collect::<Vec<(Value, Prob)>>();
         distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        return Box::new(distribution_vec.into_iter());
+        Box::new(distribution_vec.into_iter())
     }
 
     pub fn from_string(input: &str) -> Result<Self, GraphBuildingError> {
-        return dice_string_parser::string_to_factor(input);
+        dice_string_parser::string_to_factor(input)
     }
 }
 
@@ -130,14 +128,14 @@ fn convolute_two_hashmaps(
             // println!("loop2 v2:{} p2:{}", v2, p2);
             let v = operation(*v1, *v2);
             let p = p1 * p2;
-            if m.contains_key(&v) {
-                *m.get_mut(&v).unwrap() += p;
+            if let std::collections::hash_map::Entry::Vacant(e) = m.entry(v) {
+                e.insert(p);
             } else {
-                m.insert(v, p);
+                *m.get_mut(&v).unwrap() += p;
             }
         }
     }
-    return m;
+    m
 }
 
 fn convolute_hashmaps(
@@ -146,12 +144,12 @@ fn convolute_hashmaps(
 ) -> DistributionHashMap {
     // let mut m = HashMap::<Value, Prob>::new();
     let len = hashmaps.len();
-    if len <= 0 {
+    if len == 0 {
         panic!("cannot convolute hashmaps from a zero element vector");
     }
     let mut convoluted_h = hashmaps[0].clone();
-    for i in 1..len {
-        convoluted_h = convolute_two_hashmaps(&convoluted_h, &hashmaps[i], operation);
+    for h in hashmaps {
+        convoluted_h = convolute_two_hashmaps(&convoluted_h, h, operation);
     }
     convoluted_h
 }
@@ -174,14 +172,14 @@ fn sample_sum_convolute_two_hashmaps(
             std::cmp::Ordering::Greater => {
                 let count: usize = *count as usize;
                 let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(&sample_factor)
-                    .map(|e| e.clone())
                     .take(count)
+                    .cloned()
                     .collect();
                 convolute_hashmaps(&sample_vec, |a, b| a + b)
             }
         };
         count_hashmap.iter_mut().for_each(|e| {
-            *e.1 = *e.1 * *count_p;
+            *e.1 *= *count_p;
         });
         merge_hashmaps(&mut total_hashmap, &count_hashmap);
     }
@@ -192,7 +190,7 @@ impl Mul for Box<Factor> {
     type Output = Box<Factor>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::ProductCompound(vec![*self, *rhs]));
+        Box::new(Factor::ProductCompound(vec![*self, *rhs]))
     }
 }
 
@@ -200,23 +198,21 @@ impl Add for Box<Factor> {
     type Output = Box<Factor>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Box::new(Factor::SumCompound(vec![*self, *rhs]));
+        Box::new(Factor::SumCompound(vec![*self, *rhs]))
     }
 }
 
 impl FactorStats {
     /// assumes distribution is sorted by Value in ascending order
     fn from_distribution(distribution: Vec<(Value, Prob)>) -> FactorStats {
-        let max: Value = match distribution.last() {
-            None => None,
-            Some(e) => Some(e.0),
-        }
-        .unwrap();
-        let min: Value = match distribution.first() {
-            None => None,
-            Some(e) => Some(e.0),
-        }
-        .unwrap();
+        let max: Value = distribution.last().map(|e| e.0).unwrap();
+        let min: Value = distribution.first().map(|e| e.0).unwrap();
+
+        // match distribution.first() {
+        //     None => None,
+        //     Some(e) => Some(e.0),
+        // }     .unwrap();
+
         let mut mean: AggrValue = AggrValue::from(0);
         let mut total_probability: Prob = Prob::new(0u64, 1u64);
         let median_prob: Prob = Prob::new(1u64, 2u64);
@@ -270,8 +266,8 @@ impl FactorStats {
 
 pub fn merge_hashmaps(first: &mut DistributionHashMap, second: &DistributionHashMap) {
     for (k, v) in second.iter() {
-        if first.contains_key(&k) {
-            *first.get_mut(&k).unwrap() += v;
+        if first.contains_key(k) {
+            *first.get_mut(k).unwrap() += v;
         } else {
             first.insert(*k, *v);
         }
