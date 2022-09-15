@@ -3,6 +3,8 @@ use std::{
     ops::{Add, Mul},
 };
 
+use fraction::GenericFraction;
+
 use super::dice_string_parser::{self, GraphBuildingError};
 pub type Value = i64;
 pub type Prob = fraction::Fraction;
@@ -205,28 +207,66 @@ impl Add for Box<Factor> {
 }
 
 impl FactorStats {
-
     /// assumes distribution is sorted by Value in ascending order
     fn from_distribution(distribution: Vec<(Value, Prob)>) -> FactorStats {
-        let mut max: Option<Value> = match distribution.last() {
+        let max: Value = match distribution.last() {
             None => None,
-            Some(e) => Some(e.0)
-        };
-        let mut min : Option<Value> = match distribution.first() {
+            Some(e) => Some(e.0),
+        }
+        .unwrap();
+        let min: Value = match distribution.first() {
             None => None,
-            Some(e) => Some(e.0)
-        };
-        let mut mean :AggrValue;
-        let mut total_probability: Prob;
-        for (val,prob) in distribution {
-            mean += val * prob;
+            Some(e) => Some(e.0),
+        }
+        .unwrap();
+        let mut mean: AggrValue = AggrValue::from(0);
+        let mut total_probability: Prob = Prob::new(0u64, 1u64);
+        let median_prob: Prob = Prob::new(1u64, 2u64);
+        // todo median
+        let mut median: Option<Value> = None;
+        let mut mode: Option<(Value, Prob)> = None;
+        for (val, prob) in distribution.iter().cloned() {
+            mean += prob * Prob::from(val);
             total_probability += prob;
-            
+            match median {
+                Some(_) => {}
+                None => {
+                    if total_probability >= median_prob {
+                        median = Some(val);
+                    }
+                }
+            }
+            match mode {
+                Some((_, p)) => {
+                    if prob > p {
+                        mode = Some((val, prob));
+                    }
+                }
+                None => {
+                    mode = Some((val, prob));
+                }
+            }
         }
 
-        let i = FactorStats(distribution, 
-        )
-        todo!()
+        let mut sd: AggrValue = AggrValue::from(0);
+        for (val, prob) in distribution.iter().cloned() {
+            let val = AggrValue::from(val);
+            let square = (val - mean) * (val - mean);
+            sd += square * prob
+        }
+
+        let median = median.unwrap();
+        let mode = mode.unwrap().0;
+
+        FactorStats {
+            mean,
+            sd,
+            mode,
+            min,
+            max,
+            median,
+            distribution,
+        }
     }
 }
 

@@ -473,7 +473,7 @@ mod test {
             dice_string_parser::{
                 graph_seq_to_factor, string_to_factor, test::input_to_factor, GraphSeq,
             },
-            factor::Factor,
+            factor::{self, AggrValue, Factor},
         };
 
         #[test]
@@ -522,6 +522,13 @@ mod test {
             let factor = string_to_factor("min(8w5,8w5)+4").unwrap();
             let max = factor.distribution_vec().iter().map(|e| e.0).max().unwrap();
             assert_eq!(max, 44);
+        }
+
+        #[test]
+        fn test_factor_stats() {
+            let factor = Factor::from_string("2w6").unwrap();
+            let stats = factor.stats();
+            assert_eq!(stats.mean, AggrValue::new(7u64, 1u64));
         }
     }
 }
