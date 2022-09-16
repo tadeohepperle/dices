@@ -495,8 +495,14 @@ mod test {
         #[test]
         fn string_to_factor_test_3() {
             let factor = string_to_factor("min(8w5,8w5)+4").unwrap();
-            let max = factor.distribution_vec().iter().map(|e| e.0).max().unwrap();
-            assert_eq!(max, 44);
+            let max = factor
+                .stats()
+                .distribution
+                .iter()
+                .map(|e| e.0)
+                .max()
+                .unwrap();
+            assert_eq!(max, 14);
         }
 
         #[test]

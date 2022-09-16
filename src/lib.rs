@@ -11,9 +11,7 @@ mod tests {
         let f1 = Factor::Constant(2);
         let f2 = Factor::FairDie { min: 0, max: 1 };
         let f3 = Factor::ProductCompound(vec![f1, f2]);
-        let d_vec = f3.distribution_vec();
-        println!("{:?}", d_vec);
-
+        let d_vec = f3.stats().distribution;
         assert_eq!(
             d_vec,
             vec![(0, Prob::new(1u64, 2u64)), (2, Prob::new(1u64, 2u64))]
@@ -25,19 +23,19 @@ mod tests {
         let f1 = Factor::FairDie { min: 1, max: 5 };
         let f2 = Factor::FairDie { min: 1, max: 5 };
         let f3 = Factor::SumCompound(vec![f1, f2]);
-        let d_vec = f3.distribution_vec();
+        let d_vec = f3.stats().distribution;
         println!("{:?}", d_vec);
         assert_eq!(d_vec[0], (2, Prob::new(1u64, 25u64)));
     }
 
     #[test]
     fn adding_20_dice() {
-        let mut f = Factor::boxed_zero();
+        let mut f = Box::new(Factor::Constant(0));
         for _ in 0..20 {
             f = f + Box::new(Factor::FairDie { min: 1, max: 6 });
         }
 
-        let maxval = f.distribution_vec().iter().map(|e| e.0).max().unwrap();
+        let maxval = f.stats().distribution.iter().map(|e| e.0).max().unwrap();
 
         assert_eq!(maxval, 120);
     }
@@ -47,7 +45,7 @@ mod tests {
         let f1 = Factor::Constant(2);
         let f2 = Factor::FairDie { min: 1, max: 2 };
         let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.distribution_vec();
+        let d = f.stats().distribution;
         assert_eq!(d, unif(vec![2, 3, 3, 4]));
     }
     #[test]
@@ -56,7 +54,7 @@ mod tests {
         let f1 = Factor::FairDie { min: 1, max: 2 };
         let f2 = Factor::FairDie { min: 1, max: 2 };
         let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.distribution_vec();
+        let d = f.stats().distribution;
         assert_eq!(d, unif(vec![1, 2, 1, 2, 2, 3, 3, 4]));
     }
 
@@ -66,7 +64,7 @@ mod tests {
         let f1 = Factor::FairDie { min: 0, max: 1 };
         let f2 = Factor::FairDie { min: 1, max: 2 };
         let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.distribution_vec();
+        let d = f.stats().distribution;
         assert_eq!(d, unif(vec![0, 0, 1, 2]));
     }
 
@@ -76,7 +74,7 @@ mod tests {
         let f1 = Factor::Constant(0);
         let f2 = Factor::FairDie { min: 1, max: 6 };
         let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.distribution_vec();
+        let d = f.stats().distribution;
         assert_eq!(d, unif(vec![0]));
     }
 

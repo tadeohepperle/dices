@@ -32,20 +32,10 @@ pub struct FactorStats {
 }
 
 impl Factor {
-    pub fn boxed_zero() -> Box<Factor> {
-        Box::new(Factor::Constant(0))
-    }
-
-    pub fn boxed_one() -> Box<Factor> {
-        Box::new(Factor::Constant(1))
-    }
-
-    pub fn distribution_vec(&self) -> Vec<(Value, Prob)> {
-        self.distribution_iter().collect()
-    }
-
     pub fn stats(&self) -> FactorStats {
-        FactorStats::from_distribution(self.distribution_vec())
+        let dist_vec: Vec<(Value, Prob)> = self.distribution_iter().collect();
+
+        FactorStats::from_distribution(dist_vec)
     }
 
     fn distribution_hashmap(&self) -> DistributionHashMap {
@@ -102,7 +92,7 @@ impl Factor {
         }
     }
 
-    pub fn distribution_iter(&self) -> Distribution {
+    fn distribution_iter(&self) -> Distribution {
         let mut distribution_vec = self
             .distribution_hashmap()
             .into_iter()
@@ -110,6 +100,10 @@ impl Factor {
         distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         Box::new(distribution_vec.into_iter())
     }
+
+    // fn distribution_vec(&self) -> Vec<(Value, Prob)> {
+    //     self.distribution_iter().collect()
+    // }
 
     pub fn from_string(input: &str) -> Result<Self, GraphBuildingError> {
         dice_string_parser::string_to_factor(input)
@@ -148,7 +142,7 @@ fn convolute_hashmaps(
         panic!("cannot convolute hashmaps from a zero element vector");
     }
     let mut convoluted_h = hashmaps[0].clone();
-    for h in hashmaps {
+    for h in hashmaps.iter().skip(1) {
         convoluted_h = convolute_two_hashmaps(&convoluted_h, h, operation);
     }
     convoluted_h
