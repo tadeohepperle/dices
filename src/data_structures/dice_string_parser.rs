@@ -28,18 +28,13 @@ pub enum InputSymbol {
 
 impl InputSymbol {
     fn is_opening(&self) -> bool {
-        match self {
-            InputSymbol::MinOpening => true,
-            InputSymbol::MaxOpening => true,
-            InputSymbol::Opening => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            InputSymbol::MinOpening | InputSymbol::MaxOpening | InputSymbol::Opening
+        )
     }
     fn is_closing(&self) -> bool {
-        match self {
-            InputSymbol::Closing => true,
-            _ => false,
-        }
+        matches!(self, InputSymbol::Closing)
     }
 }
 
@@ -161,16 +156,16 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
             e => return Err(GraphBuildingError::OneInputSymbolButNotAtomic(e)),
         }
     }
-    let is_pure_bracket_compound = symbols_indicate_pure_bracket_compund(&symbols);
+    let is_pure_bracket_compound = symbols_indicate_pure_bracket_compund(symbols);
     if is_pure_bracket_compound {
-        let reduced_vec = vec_without_last_and_first(&symbols);
+        let reduced_vec = vec_without_last_and_first(symbols);
         return input_symbols_to_graph_seq(&reduced_vec);
     }
-    let is_max_compound = symbols_indicate_max_compound(&symbols);
+    let is_max_compound = symbols_indicate_max_compound(symbols);
 
-    let is_min_compound = symbols_indicate_min_compound(&symbols);
+    let is_min_compound = symbols_indicate_min_compound(symbols);
     if is_max_compound || is_min_compound {
-        let reduced_vec = vec_without_last_and_first(&symbols);
+        let reduced_vec = vec_without_last_and_first(symbols);
         let parts = partition_input_symbols_bracket_aware(&reduced_vec, InputSymbol::Comma);
         let mut sub_sequences: Vec<GraphSeq> = vec![];
         for p in parts {
@@ -186,18 +181,18 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
         panic!("should never get here");
     }
 
-    let add_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Add);
+    let add_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Add);
     if add_partitioning.len() >= 2 {
         let sub_sequences = input_symbol_partitioning_to_sub_sequnces(add_partitioning)?;
         return Ok(GraphSeq::Add(sub_sequences));
     }
-    let mul_partitioning = partition_input_symbols_bracket_aware(&symbols, InputSymbol::Multiply);
+    let mul_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Multiply);
     if mul_partitioning.len() >= 2 {
         let sub_sequences = input_symbol_partitioning_to_sub_sequnces(mul_partitioning)?;
         return Ok(GraphSeq::Mul(sub_sequences));
     }
     let sample_sum_partitioning =
-        partition_input_symbols_bracket_aware(&symbols, InputSymbol::SampleSum);
+        partition_input_symbols_bracket_aware(symbols, InputSymbol::SampleSum);
 
     if sample_sum_partitioning.len() >= 2 {
         if sample_sum_partitioning.len() > 2 {
@@ -211,7 +206,7 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
         ));
     }
     println!("{:?}", symbols);
-    return Err(GraphBuildingError::UnknownSyntaxError(symbols.clone()));
+    Err(GraphBuildingError::UnknownSyntaxError(symbols.clone()))
 }
 
 fn input_symbol_partitioning_to_sub_sequnces(
@@ -222,10 +217,10 @@ fn input_symbol_partitioning_to_sub_sequnces(
         let graph_seq_for_p = input_symbols_to_graph_seq(&p)?;
         sub_sequences.push(graph_seq_for_p);
     }
-    return Ok(sub_sequences);
+    Ok(sub_sequences)
 }
 
-fn symbols_indicate_max_compound(symbols: &Vec<InputSymbol>) -> bool {
+fn symbols_indicate_max_compound(symbols: &[InputSymbol]) -> bool {
     if let Some(InputSymbol::MaxOpening) = symbols.first() {
         if let Some(InputSymbol::Closing) = symbols.last() {
             return true;
@@ -234,7 +229,7 @@ fn symbols_indicate_max_compound(symbols: &Vec<InputSymbol>) -> bool {
     false
 }
 
-fn symbols_indicate_min_compound(symbols: &Vec<InputSymbol>) -> bool {
+fn symbols_indicate_min_compound(symbols: &[InputSymbol]) -> bool {
     if let Some(InputSymbol::MinOpening) = symbols.first() {
         if let Some(InputSymbol::Closing) = symbols.last() {
             return true;
@@ -243,7 +238,7 @@ fn symbols_indicate_min_compound(symbols: &Vec<InputSymbol>) -> bool {
     false
 }
 
-fn symbols_indicate_pure_bracket_compund(symbols: &Vec<InputSymbol>) -> bool {
+fn symbols_indicate_pure_bracket_compund(symbols: &[InputSymbol]) -> bool {
     if let Some(InputSymbol::Opening) = symbols.first() {
         if let Some(InputSymbol::Closing) = symbols.last() {
             return true;
@@ -254,51 +249,41 @@ fn symbols_indicate_pure_bracket_compund(symbols: &Vec<InputSymbol>) -> bool {
 
 fn graph_seq_to_factor(graph_seq: GraphSeq) -> Factor {
     match graph_seq {
-        GraphSeq::Add(vec) => {
-            return Factor::SumCompound(
-                vec.into_iter()
-                    .map(move |g| graph_seq_to_factor(g))
-                    .collect::<Vec<Factor>>(),
-            );
-        }
+        GraphSeq::Add(vec) => Factor::SumCompound(
+            vec.into_iter()
+                .map(graph_seq_to_factor)
+                .collect::<Vec<Factor>>(),
+        ),
         GraphSeq::Atomic(f) => f,
-        GraphSeq::Mul(vec) => {
-            return Factor::ProductCompound(
-                vec.into_iter()
-                    .map(move |g| graph_seq_to_factor(g))
-                    .collect::<Vec<Factor>>(),
-            );
-        }
-        GraphSeq::Min(vec) => {
-            return Factor::MinCompound(
-                vec.into_iter()
-                    .map(move |g| graph_seq_to_factor(g))
-                    .collect::<Vec<Factor>>(),
-            );
-        }
-        GraphSeq::Max(vec) => {
-            return Factor::MaxCompound(
-                vec.into_iter()
-                    .map(move |g| graph_seq_to_factor(g))
-                    .collect::<Vec<Factor>>(),
-            );
-        }
-        GraphSeq::SampleSum(g1, g2) => {
-            return Factor::SampleSumCompound(
-                Box::new(graph_seq_to_factor(*g1)),
-                Box::new(graph_seq_to_factor(*g2)),
-            );
-        }
+        GraphSeq::Mul(vec) => Factor::ProductCompound(
+            vec.into_iter()
+                .map(graph_seq_to_factor)
+                .collect::<Vec<Factor>>(),
+        ),
+        GraphSeq::Min(vec) => Factor::MinCompound(
+            vec.into_iter()
+                .map(graph_seq_to_factor)
+                .collect::<Vec<Factor>>(),
+        ),
+        GraphSeq::Max(vec) => Factor::MaxCompound(
+            vec.into_iter()
+                .map(graph_seq_to_factor)
+                .collect::<Vec<Factor>>(),
+        ),
+        GraphSeq::SampleSum(g1, g2) => Factor::SampleSumCompound(
+            Box::new(graph_seq_to_factor(*g1)),
+            Box::new(graph_seq_to_factor(*g2)),
+        ),
     }
 }
 
-fn vec_without_last_and_first(vec: &Vec<InputSymbol>) -> Vec<InputSymbol> {
+fn vec_without_last_and_first(vec: &[InputSymbol]) -> Vec<InputSymbol> {
     vec.iter()
         .skip(1)
         .rev()
         .skip(1)
         .rev()
-        .map(|e| *e)
+        .copied()
         .collect::<Vec<InputSymbol>>()
 }
 
