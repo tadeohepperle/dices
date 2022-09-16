@@ -1,5 +1,7 @@
 mod data_structures;
 
+pub use data_structures::factor::Factor;
+
 #[cfg(test)]
 mod tests {
     use crate::data_structures::factor::{DistributionHashMap, Factor, Prob, Value};
