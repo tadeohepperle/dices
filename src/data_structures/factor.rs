@@ -1,12 +1,11 @@
+use super::dice_string_parser::{self, GraphBuildingError};
 use std::{
     collections::HashMap,
     ops::{Add, Mul},
 };
-
-use super::dice_string_parser::{self, GraphBuildingError};
 pub type Value = i64;
-pub type Prob = fraction::Fraction;
-pub type AggrValue = fraction::Fraction;
+pub type Prob = fraction::BigFraction;
+pub type AggrValue = fraction::BigFraction;
 type Distribution = Box<dyn Iterator<Item = (Value, Prob)>>;
 pub type DistributionHashMap = HashMap<Value, Prob>;
 
@@ -52,7 +51,7 @@ impl Factor {
                 let prob: Prob = Prob::new(1u64, (max - min + 1) as u64);
                 let mut m = DistributionHashMap::new();
                 for v in min..=max {
-                    m.insert(v, prob);
+                    m.insert(v, prob.clone());
                 }
                 m
             }
@@ -173,7 +172,7 @@ fn sample_sum_convolute_two_hashmaps(
             }
         };
         count_hashmap.iter_mut().for_each(|e| {
-            *e.1 *= *count_p;
+            *e.1 *= count_p.clone();
         });
         merge_hashmaps(&mut total_hashmap, &count_hashmap);
     }
@@ -208,14 +207,15 @@ impl FactorStats {
         // }     .unwrap();
 
         let mut mean: AggrValue = AggrValue::from(0);
+
         let mut total_probability: Prob = Prob::new(0u64, 1u64);
         let median_prob: Prob = Prob::new(1u64, 2u64);
         // todo median
         let mut median: Option<Value> = None;
         let mut mode: Option<(Value, Prob)> = None;
         for (val, prob) in distribution.iter().cloned() {
-            mean += prob * Prob::from(val);
-            total_probability += prob;
+            mean += prob.clone() * Prob::from(val);
+            total_probability += prob.clone();
             match median {
                 Some(_) => {}
                 None => {
@@ -224,9 +224,9 @@ impl FactorStats {
                     }
                 }
             }
-            match mode {
+            match &mode {
                 Some((_, p)) => {
-                    if prob > p {
+                    if prob > *p {
                         mode = Some((val, prob));
                     }
                 }
@@ -239,7 +239,8 @@ impl FactorStats {
         let mut sd: AggrValue = AggrValue::from(0);
         for (val, prob) in distribution.iter().cloned() {
             let val = AggrValue::from(val);
-            let square = (val - mean) * (val - mean);
+            let val_minus_mean = &val - &mean;
+            let square = (&val_minus_mean) * (&val_minus_mean);
             sd += square * prob
         }
 
@@ -263,7 +264,7 @@ pub fn merge_hashmaps(first: &mut DistributionHashMap, second: &DistributionHash
         if first.contains_key(k) {
             *first.get_mut(k).unwrap() += v;
         } else {
-            first.insert(*k, *v);
+            first.insert(*k, v.clone());
         }
     }
 }

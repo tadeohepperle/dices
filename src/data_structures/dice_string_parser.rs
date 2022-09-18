@@ -502,7 +502,7 @@ mod test {
                 .map(|e| e.0)
                 .max()
                 .unwrap();
-            assert_eq!(max, 14);
+            assert_eq!(max, 44);
         }
 
         #[test]

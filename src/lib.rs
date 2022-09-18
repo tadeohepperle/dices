@@ -84,9 +84,9 @@ mod tests {
         let prob = Prob::new(1u64, l as u64);
         v.iter().for_each(|e| {
             if hashmap.contains_key(e) {
-                *hashmap.get_mut(e).unwrap() += prob;
+                *hashmap.get_mut(e).unwrap() += &prob;
             } else {
-                hashmap.insert(*e, prob);
+                hashmap.insert(*e, prob.clone());
             }
         });
         let mut distribution_vec = hashmap.into_iter().collect::<Vec<(Value, Prob)>>();
