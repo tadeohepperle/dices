@@ -1,17 +1,22 @@
+//! A crate for calculating distrete probability distributions of dice.
+//!
+//!
+
 mod data_structures;
 
-pub use data_structures::factor::Factor;
+pub use data_structures::dice::DiceBuilder;
 
 #[cfg(test)]
 mod tests {
-    use crate::data_structures::factor::{DistributionHashMap, Factor, Prob, Value};
+    use crate::data_structures::dice::{DiceBuilder, DistributionHashMap, Prob, Value};
 
     #[test]
     fn adding_distributions_coin_times_2() {
-        let f1 = Factor::Constant(2);
-        let f2 = Factor::FairDie { min: 0, max: 1 };
-        let f3 = Factor::ProductCompound(vec![f1, f2]);
-        let d_vec = f3.stats().distribution;
+        let f1 = DiceBuilder::Constant(2);
+        let f2 = DiceBuilder::FairDie { min: 0, max: 1 };
+        let f3 = DiceBuilder::ProductCompound(vec![f1, f2]);
+        let dice = f3.build();
+        let d_vec = dice.distribution();
         assert_eq!(
             d_vec,
             vec![(0, Prob::new(1u64, 2u64)), (2, Prob::new(1u64, 2u64))]
@@ -20,61 +25,66 @@ mod tests {
 
     #[test]
     fn adding_distributions_two_dice() {
-        let f1 = Factor::FairDie { min: 1, max: 5 };
-        let f2 = Factor::FairDie { min: 1, max: 5 };
-        let f3 = Factor::SumCompound(vec![f1, f2]);
-        let d_vec = f3.stats().distribution;
+        let f1 = DiceBuilder::FairDie { min: 1, max: 5 };
+        let f2 = DiceBuilder::FairDie { min: 1, max: 5 };
+        let f3 = DiceBuilder::SumCompound(vec![f1, f2]);
+        let dice = f3.build();
+        let d_vec = dice.distribution();
         println!("{:?}", d_vec);
         assert_eq!(d_vec[0], (2, Prob::new(1u64, 25u64)));
     }
 
     #[test]
     fn adding_20_dice() {
-        let mut f = Box::new(Factor::Constant(0));
+        let mut f = Box::new(DiceBuilder::Constant(0));
         for _ in 0..20 {
-            f = f + Box::new(Factor::FairDie { min: 1, max: 6 });
+            f = f + Box::new(DiceBuilder::FairDie { min: 1, max: 6 });
         }
 
-        let maxval = f.stats().distribution.iter().map(|e| e.0).max().unwrap();
+        let maxval = f.build().distribution().iter().map(|e| e.0).max().unwrap();
 
         assert_eq!(maxval, 120);
     }
 
     #[test]
     fn sample_sum_convolute_1() {
-        let f1 = Factor::Constant(2);
-        let f2 = Factor::FairDie { min: 1, max: 2 };
-        let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.stats().distribution;
+        let f1 = DiceBuilder::Constant(2);
+        let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
+        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let dice = f.build();
+        let d = dice.distribution();
         assert_eq!(d, unif(vec![2, 3, 3, 4]));
     }
     #[test]
     /// two dice
     fn sample_sum_convolute_2() {
-        let f1 = Factor::FairDie { min: 1, max: 2 };
-        let f2 = Factor::FairDie { min: 1, max: 2 };
-        let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.stats().distribution;
+        let f1 = DiceBuilder::FairDie { min: 1, max: 2 };
+        let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
+        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let dice = f.build();
+        let d = dice.distribution();
         assert_eq!(d, unif(vec![1, 2, 1, 2, 2, 3, 3, 4]));
     }
 
     #[test]
     /// 0 or one d2
     fn sample_sum_convolute_3() {
-        let f1 = Factor::FairDie { min: 0, max: 1 };
-        let f2 = Factor::FairDie { min: 1, max: 2 };
-        let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.stats().distribution;
+        let f1 = DiceBuilder::FairDie { min: 0, max: 1 };
+        let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
+        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let dice = f.build();
+        let d = dice.distribution();
         assert_eq!(d, unif(vec![0, 0, 1, 2]));
     }
 
     #[test]
     /// zero dice
     fn sample_sum_convolute_4() {
-        let f1 = Factor::Constant(0);
-        let f2 = Factor::FairDie { min: 1, max: 6 };
-        let f = Factor::SampleSumCompound(Box::new(f1), Box::new(f2));
-        let d = f.stats().distribution;
+        let f1 = DiceBuilder::Constant(0);
+        let f2 = DiceBuilder::FairDie { min: 1, max: 6 };
+        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let dice = f.build();
+        let d = dice.distribution();
         assert_eq!(d, unif(vec![0]));
     }
 

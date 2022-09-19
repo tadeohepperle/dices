@@ -13,3 +13,4 @@ repository = "https://github.com/tadeohepperle/dices"
 [dependencies]
 fraction = "0.11.1"
 regex = "1"
+rand = "0.8.5"

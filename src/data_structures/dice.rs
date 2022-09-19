@@ -1,4 +1,7 @@
 use super::dice_string_parser::{self, GraphBuildingError};
+use core::panic;
+use fraction::ToPrimitive;
+use rand;
 use std::{
     collections::HashMap,
     ops::{Add, Mul},
@@ -10,41 +13,69 @@ type Distribution = Box<dyn Iterator<Item = (Value, Prob)>>;
 pub type DistributionHashMap = HashMap<Value, Prob>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Factor {
+pub enum DiceBuilder {
     Constant(Value),
     FairDie { min: Value, max: Value },
-    SumCompound(Vec<Factor>),
-    ProductCompound(Vec<Factor>),
-    MaxCompound(Vec<Factor>),
-    MinCompound(Vec<Factor>),
-    SampleSumCompound(Box<Factor>, Box<Factor>),
+    SumCompound(Vec<DiceBuilder>),
+    ProductCompound(Vec<DiceBuilder>),
+    MaxCompound(Vec<DiceBuilder>),
+    MinCompound(Vec<DiceBuilder>),
+    SampleSumCompound(Box<DiceBuilder>, Box<DiceBuilder>),
 }
 
-pub struct FactorStats {
+pub struct Dice {
     pub min: Value,
     pub max: Value,
     pub median: Value,
     pub mode: Value,
     pub mean: AggrValue,
     pub sd: AggrValue,
-    pub distribution: Vec<(Value, Prob)>,
+    distribution: Vec<(Value, Prob)>,
+    accumulated_distribution: Vec<(Value, Prob)>,
 }
 
-impl Factor {
-    pub fn stats(&self) -> FactorStats {
-        let dist_vec: Vec<(Value, Prob)> = self.distribution_iter().collect();
+impl Dice {
+    pub fn roll(&self) -> Value {
+        let r: f64 = rand::random();
+        for (val, prob) in self.accumulated_distribution.iter() {
+            if prob.to_f64().unwrap() >= r {
+                return *val;
+            }
+        }
+        panic! {"Something went wrong in rolling. random value: {r}"}
+    }
 
-        FactorStats::from_distribution(dist_vec)
+    /// get the discrete probability distribution
+    ///
+    /// this is a simple getter, calculating the distribution is performed in the DiceBuilder::build() function
+    pub fn distribution(&self) -> &[(Value, Prob)] {
+        &self.distribution
+    }
+
+    pub fn accumulated_distribution(&self) -> &[(Value, Prob)] {
+        &self.accumulated_distribution
+    }
+}
+
+impl DiceBuilder {
+    pub fn build(self) -> Dice {
+        let dist_vec: Vec<(Value, Prob)> = self.distribution_iter().collect();
+        Dice::from_distribution(dist_vec)
+    }
+
+    pub fn build_from_string(input: &str) -> Result<Dice, GraphBuildingError> {
+        let builder = DiceBuilder::from_string(input)?;
+        Ok(builder.build())
     }
 
     fn distribution_hashmap(&self) -> DistributionHashMap {
         match self {
-            Factor::Constant(v) => {
+            DiceBuilder::Constant(v) => {
                 let mut m = DistributionHashMap::new();
                 m.insert(*v, Prob::new(1u64, 1u64));
                 m
             }
-            Factor::FairDie { min, max } => {
+            DiceBuilder::FairDie { min, max } => {
                 assert!(max >= min);
                 let min: i64 = *min;
                 let max: i64 = *max;
@@ -56,35 +87,35 @@ impl Factor {
                 m
             }
 
-            Factor::SumCompound(vec) => {
+            DiceBuilder::SumCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
                 convolute_hashmaps(&hashmaps, |a, b| a + b)
             }
-            Factor::ProductCompound(vec) => {
+            DiceBuilder::ProductCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
                 convolute_hashmaps(&hashmaps, |a, b| a * b)
             }
-            Factor::MaxCompound(vec) => {
+            DiceBuilder::MaxCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
                 convolute_hashmaps(&hashmaps, std::cmp::max)
             }
-            Factor::MinCompound(vec) => {
+            DiceBuilder::MinCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
                 convolute_hashmaps(&hashmaps, std::cmp::min)
             }
-            Factor::SampleSumCompound(f1, f2) => sample_sum_convolute_two_hashmaps(
+            DiceBuilder::SampleSumCompound(f1, f2) => sample_sum_convolute_two_hashmaps(
                 f1.distribution_hashmap(),
                 f2.distribution_hashmap(),
             ),
@@ -179,25 +210,25 @@ fn sample_sum_convolute_two_hashmaps(
     total_hashmap
 }
 
-impl Mul for Box<Factor> {
-    type Output = Box<Factor>;
+impl Mul for Box<DiceBuilder> {
+    type Output = Box<DiceBuilder>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Box::new(Factor::ProductCompound(vec![*self, *rhs]))
+        Box::new(DiceBuilder::ProductCompound(vec![*self, *rhs]))
     }
 }
 
-impl Add for Box<Factor> {
-    type Output = Box<Factor>;
+impl Add for Box<DiceBuilder> {
+    type Output = Box<DiceBuilder>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Box::new(Factor::SumCompound(vec![*self, *rhs]))
+        Box::new(DiceBuilder::SumCompound(vec![*self, *rhs]))
     }
 }
 
-impl FactorStats {
+impl Dice {
     /// assumes distribution is sorted by Value in ascending order
-    fn from_distribution(distribution: Vec<(Value, Prob)>) -> FactorStats {
+    fn from_distribution(distribution: Vec<(Value, Prob)>) -> Dice {
         let max: Value = distribution.last().map(|e| e.0).unwrap();
         let min: Value = distribution.first().map(|e| e.0).unwrap();
 
@@ -213,6 +244,7 @@ impl FactorStats {
         // todo median
         let mut median: Option<Value> = None;
         let mut mode: Option<(Value, Prob)> = None;
+
         for (val, prob) in distribution.iter().cloned() {
             mean += prob.clone() * Prob::from(val);
             total_probability += prob.clone();
@@ -247,7 +279,9 @@ impl FactorStats {
         let median = median.unwrap();
         let mode = mode.unwrap().0;
 
-        FactorStats {
+        let accumulated_distribution = accumulated_distribution_from_distribution(&distribution);
+
+        Dice {
             mean,
             sd,
             mode,
@@ -255,6 +289,7 @@ impl FactorStats {
             max,
             median,
             distribution,
+            accumulated_distribution,
         }
     }
 }
@@ -267,4 +302,21 @@ pub fn merge_hashmaps(first: &mut DistributionHashMap, second: &DistributionHash
             first.insert(*k, v.clone());
         }
     }
+}
+
+fn accumulated_distribution_from_distribution(
+    distribution: &[(Value, Prob)],
+) -> Vec<(Value, Prob)> {
+    let mut acc_distr: Vec<(Value, Prob)> = vec![];
+    let mut last_acc_prob: Option<Prob> = None;
+    for (val, prob) in distribution {
+        match last_acc_prob {
+            None => acc_distr.push((*val, prob.clone())),
+            Some(acc_p) => {
+                acc_distr.push((*val, prob.clone() + acc_p.clone()));
+                last_acc_prob = Some(acc_p + prob.clone());
+            }
+        }
+    }
+    acc_distr
 }

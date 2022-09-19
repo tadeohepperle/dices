@@ -1,6 +1,6 @@
 use std::vec;
 
-use super::factor::{Factor, Value};
+use super::dice::{DiceBuilder, Value};
 
 // pub fn from_string(input: &str) -> Box<Factor> {
 //     /*
@@ -38,7 +38,7 @@ impl InputSymbol {
     }
 }
 
-pub fn string_to_factor(input: &str) -> Result<Factor, GraphBuildingError> {
+pub fn string_to_factor(input: &str) -> Result<DiceBuilder, GraphBuildingError> {
     let symbols = string_to_input_symbols(input);
     let graph_seq = input_symbols_to_graph_seq(&symbols)?;
     let factor = graph_seq_to_factor(graph_seq);
@@ -124,7 +124,7 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
 
 #[derive(Debug, PartialEq, Eq)]
 enum GraphSeq {
-    Atomic(Factor),
+    Atomic(DiceBuilder),
     Add(Vec<GraphSeq>),
     Mul(Vec<GraphSeq>),
     Min(Vec<GraphSeq>),
@@ -149,9 +149,9 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
     if symbols.len() == 1 {
         let sym = symbols[0];
         match sym {
-            InputSymbol::Constant(i) => return Ok(GraphSeq::Atomic(Factor::Constant(i))),
+            InputSymbol::Constant(i) => return Ok(GraphSeq::Atomic(DiceBuilder::Constant(i))),
             InputSymbol::FairDie { min, max } => {
-                return Ok(GraphSeq::Atomic(Factor::FairDie { min, max }))
+                return Ok(GraphSeq::Atomic(DiceBuilder::FairDie { min, max }))
             }
             e => return Err(GraphBuildingError::OneInputSymbolButNotAtomic(e)),
         }
@@ -247,30 +247,30 @@ fn symbols_indicate_pure_bracket_compund(symbols: &[InputSymbol]) -> bool {
     false
 }
 
-fn graph_seq_to_factor(graph_seq: GraphSeq) -> Factor {
+fn graph_seq_to_factor(graph_seq: GraphSeq) -> DiceBuilder {
     match graph_seq {
-        GraphSeq::Add(vec) => Factor::SumCompound(
+        GraphSeq::Add(vec) => DiceBuilder::SumCompound(
             vec.into_iter()
                 .map(graph_seq_to_factor)
-                .collect::<Vec<Factor>>(),
+                .collect::<Vec<DiceBuilder>>(),
         ),
         GraphSeq::Atomic(f) => f,
-        GraphSeq::Mul(vec) => Factor::ProductCompound(
+        GraphSeq::Mul(vec) => DiceBuilder::ProductCompound(
             vec.into_iter()
                 .map(graph_seq_to_factor)
-                .collect::<Vec<Factor>>(),
+                .collect::<Vec<DiceBuilder>>(),
         ),
-        GraphSeq::Min(vec) => Factor::MinCompound(
+        GraphSeq::Min(vec) => DiceBuilder::MinCompound(
             vec.into_iter()
                 .map(graph_seq_to_factor)
-                .collect::<Vec<Factor>>(),
+                .collect::<Vec<DiceBuilder>>(),
         ),
-        GraphSeq::Max(vec) => Factor::MaxCompound(
+        GraphSeq::Max(vec) => DiceBuilder::MaxCompound(
             vec.into_iter()
                 .map(graph_seq_to_factor)
-                .collect::<Vec<Factor>>(),
+                .collect::<Vec<DiceBuilder>>(),
         ),
-        GraphSeq::SampleSum(g1, g2) => Factor::SampleSumCompound(
+        GraphSeq::SampleSum(g1, g2) => DiceBuilder::SampleSumCompound(
             Box::new(graph_seq_to_factor(*g1)),
             Box::new(graph_seq_to_factor(*g2)),
         ),
@@ -412,10 +412,10 @@ mod test {
 
     mod graph_building {
         use crate::data_structures::{
+            dice::DiceBuilder,
             dice_string_parser::{
                 input_symbols_to_graph_seq, string_to_input_symbols, GraphSeq, InputSymbol,
             },
-            factor::Factor,
         };
 
         #[test]
@@ -437,9 +437,9 @@ mod test {
             );
             let graph = input_symbols_to_graph_seq(&symbols).unwrap();
             let expected_graph = GraphSeq::Max(vec![
-                GraphSeq::Atomic(Factor::Constant(1)),
-                GraphSeq::Atomic(Factor::Constant(2)),
-                GraphSeq::Atomic(Factor::Constant(3)),
+                GraphSeq::Atomic(DiceBuilder::Constant(1)),
+                GraphSeq::Atomic(DiceBuilder::Constant(2)),
+                GraphSeq::Atomic(DiceBuilder::Constant(3)),
             ]);
             assert_eq!(graph, expected_graph);
         }
@@ -447,22 +447,22 @@ mod test {
 
     mod input_to_factor {
         use crate::data_structures::{
+            dice::{AggrValue, DiceBuilder},
             dice_string_parser::{graph_seq_to_factor, string_to_factor, GraphSeq},
-            factor::{AggrValue, Factor},
         };
 
         #[test]
         fn graph_seq_to_factor_test() {
             let graph = GraphSeq::Max(vec![
-                GraphSeq::Atomic(Factor::Constant(1)),
-                GraphSeq::Atomic(Factor::Constant(2)),
-                GraphSeq::Atomic(Factor::Constant(3)),
+                GraphSeq::Atomic(DiceBuilder::Constant(1)),
+                GraphSeq::Atomic(DiceBuilder::Constant(2)),
+                GraphSeq::Atomic(DiceBuilder::Constant(3)),
             ]);
             let factor = graph_seq_to_factor(graph);
-            let expected_factor = Factor::MaxCompound(vec![
-                Factor::Constant(1),
-                Factor::Constant(2),
-                Factor::Constant(3),
+            let expected_factor = DiceBuilder::MaxCompound(vec![
+                DiceBuilder::Constant(1),
+                DiceBuilder::Constant(2),
+                DiceBuilder::Constant(3),
             ]);
             assert_eq!(factor, expected_factor);
         }
@@ -470,10 +470,10 @@ mod test {
         #[test]
         fn string_to_factor_test() {
             let factor = string_to_factor("max(1 ,2,3)  ").unwrap();
-            let expected_factor = Factor::MaxCompound(vec![
-                Factor::Constant(1),
-                Factor::Constant(2),
-                Factor::Constant(3),
+            let expected_factor = DiceBuilder::MaxCompound(vec![
+                DiceBuilder::Constant(1),
+                DiceBuilder::Constant(2),
+                DiceBuilder::Constant(3),
             ]);
             assert_eq!(factor, expected_factor);
         }
@@ -481,14 +481,20 @@ mod test {
         #[test]
         fn string_to_factor_test_2() {
             let factor = string_to_factor("4*5+2*3").unwrap();
-            let expected_factor = Factor::SumCompound(vec![
-                Factor::ProductCompound(vec![Factor::Constant(4), Factor::Constant(5)]),
-                Factor::ProductCompound(vec![Factor::Constant(2), Factor::Constant(3)]),
+            let expected_factor = DiceBuilder::SumCompound(vec![
+                DiceBuilder::ProductCompound(vec![
+                    DiceBuilder::Constant(4),
+                    DiceBuilder::Constant(5),
+                ]),
+                DiceBuilder::ProductCompound(vec![
+                    DiceBuilder::Constant(2),
+                    DiceBuilder::Constant(3),
+                ]),
             ]);
             assert_eq!(factor, expected_factor);
 
             let factor2 = string_to_factor("26").unwrap();
-            let expected_factor_2 = Factor::Constant(26);
+            let expected_factor_2 = DiceBuilder::Constant(26);
             assert_eq!(factor2, expected_factor_2);
         }
 
@@ -496,8 +502,8 @@ mod test {
         fn string_to_factor_test_3() {
             let factor = string_to_factor("min(8w5,8w5)+4").unwrap();
             let max = factor
-                .stats()
-                .distribution
+                .build()
+                .distribution()
                 .iter()
                 .map(|e| e.0)
                 .max()
@@ -507,8 +513,8 @@ mod test {
 
         #[test]
         fn test_factor_stats() {
-            let factor = Factor::from_string("2w6").unwrap();
-            let stats = factor.stats();
+            let factor = DiceBuilder::from_string("2w6").unwrap();
+            let stats = factor.build();
             assert_eq!(stats.mean, AggrValue::new(7u64, 1u64));
         }
     }
