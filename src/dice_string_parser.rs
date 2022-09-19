@@ -1,6 +1,6 @@
 use std::vec;
 
-use super::dice::{DiceBuilder, Value};
+use super::dice_builder::{DiceBuilder, Value};
 
 // pub fn from_string(input: &str) -> Box<Factor> {
 //     /*
@@ -411,8 +411,8 @@ mod test {
     }
 
     mod graph_building {
-        use crate::data_structures::{
-            dice::DiceBuilder,
+        use crate::{
+            dice_builder::DiceBuilder,
             dice_string_parser::{
                 input_symbols_to_graph_seq, string_to_input_symbols, GraphSeq, InputSymbol,
             },
@@ -446,8 +446,9 @@ mod test {
     }
 
     mod input_to_factor {
-        use crate::data_structures::{
-            dice::{AggrValue, DiceBuilder},
+        use crate::dice_builder::AggrValue;
+        use crate::{
+            dice_builder::DiceBuilder,
             dice_string_parser::{graph_seq_to_factor, string_to_factor, GraphSeq},
         };
 

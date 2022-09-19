@@ -2,13 +2,16 @@
 //!
 //!
 
-mod data_structures;
+mod dice;
+mod dice_builder;
+mod dice_string_parser;
 
-pub use data_structures::dice::DiceBuilder;
+pub use dice::Dice;
+pub use dice_builder::DiceBuilder;
 
 #[cfg(test)]
 mod tests {
-    use crate::data_structures::dice::{DiceBuilder, DistributionHashMap, Prob, Value};
+    use crate::dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value};
 
     #[test]
     fn adding_distributions_coin_times_2() {
