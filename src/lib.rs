@@ -103,4 +103,25 @@ mod tests {
         distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         return distribution_vec;
     }
+    #[test]
+    fn calculating_accumulated_distribution_test() {
+        let dices = vec!["1w6+1", "3w8-3", "max(1,2,3)"];
+
+        let last_elements_of_acc_distr: Vec<Prob> = dices
+            .iter()
+            .map(|e| {
+                DiceBuilder::from_string(&e)
+                    .unwrap()
+                    .build()
+                    .accumulated_distribution()
+                    .last()
+                    .unwrap()
+                    .1
+                    .clone()
+            })
+            .collect();
+        for e in last_elements_of_acc_distr {
+            assert_eq!(e, Prob::new(1u64, 1u64));
+        }
+    }
 }

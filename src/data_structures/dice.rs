@@ -311,10 +311,14 @@ fn accumulated_distribution_from_distribution(
     let mut last_acc_prob: Option<Prob> = None;
     for (val, prob) in distribution {
         match last_acc_prob {
-            None => acc_distr.push((*val, prob.clone())),
+            None => {
+                acc_distr.push((*val, prob.clone()));
+                last_acc_prob = Some(prob.clone());
+            }
             Some(acc_p) => {
-                acc_distr.push((*val, prob.clone() + acc_p.clone()));
-                last_acc_prob = Some(acc_p + prob.clone());
+                let acc_p = acc_p.clone().add(prob.clone());
+                last_acc_prob = Some(acc_p.clone());
+                acc_distr.push((*val, acc_p));
             }
         }
     }
