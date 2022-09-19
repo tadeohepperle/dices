@@ -38,7 +38,7 @@ impl InputSymbol {
     }
 }
 
-pub fn string_to_factor(input: &str) -> Result<DiceBuilder, GraphBuildingError> {
+pub fn string_to_factor(input: &str) -> Result<DiceBuilder, DiceBuildingError> {
     let symbols = string_to_input_symbols(input);
     let graph_seq = input_symbols_to_graph_seq(&symbols)?;
     let factor = graph_seq_to_factor(graph_seq);
@@ -133,7 +133,7 @@ enum GraphSeq {
 }
 
 #[derive(Debug)]
-pub enum GraphBuildingError {
+pub enum DiceBuildingError {
     GraphSeqWithoutVec,
     AddSymbolInNonAddSequence,
     MulSymbolWithoutAnElementInCurrentSequence,
@@ -145,7 +145,7 @@ pub enum GraphBuildingError {
     OneInputSymbolButNotAtomic(InputSymbol),
 }
 
-fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, GraphBuildingError> {
+fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, DiceBuildingError> {
     if symbols.len() == 1 {
         let sym = symbols[0];
         match sym {
@@ -153,7 +153,7 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
             InputSymbol::FairDie { min, max } => {
                 return Ok(GraphSeq::Atomic(DiceBuilder::FairDie { min, max }))
             }
-            e => return Err(GraphBuildingError::OneInputSymbolButNotAtomic(e)),
+            e => return Err(DiceBuildingError::OneInputSymbolButNotAtomic(e)),
         }
     }
     let is_pure_bracket_compound = symbols_indicate_pure_bracket_compund(symbols);
@@ -196,7 +196,7 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
 
     if sample_sum_partitioning.len() >= 2 {
         if sample_sum_partitioning.len() > 2 {
-            return Err(GraphBuildingError::MoreThan2ElementsUsedForSampleSum);
+            return Err(DiceBuildingError::MoreThan2ElementsUsedForSampleSum);
         }
         let count_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[0])?;
         let sample_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[1])?;
@@ -206,12 +206,12 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Gr
         ));
     }
     println!("{:?}", symbols);
-    Err(GraphBuildingError::UnknownSyntaxError(symbols.clone()))
+    Err(DiceBuildingError::UnknownSyntaxError(symbols.clone()))
 }
 
 fn input_symbol_partitioning_to_sub_sequnces(
     partitioning: Vec<Vec<InputSymbol>>,
-) -> Result<Vec<GraphSeq>, GraphBuildingError> {
+) -> Result<Vec<GraphSeq>, DiceBuildingError> {
     let mut sub_sequences: Vec<GraphSeq> = vec![];
     for p in partitioning {
         let graph_seq_for_p = input_symbols_to_graph_seq(&p)?;

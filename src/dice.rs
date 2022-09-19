@@ -2,6 +2,8 @@ use std::ops::Add;
 
 use fraction::ToPrimitive;
 
+use crate::{dice_string_parser::DiceBuildingError, DiceBuilder};
+
 use super::dice_builder::{AggrValue, Prob, Value};
 
 #[derive(Debug)]
@@ -18,10 +20,17 @@ pub struct Dice {
 }
 
 impl Dice {
-    pub fn from_distribution_and_builder_string(
-        distribution: Vec<(Value, Prob)>,
-        builder_string: String,
-    ) -> Dice {
+    pub fn build_from_string(input: &str) -> Result<Dice, DiceBuildingError> {
+        let builder = DiceBuilder::from_string(input)?;
+        Ok(builder.build())
+    }
+
+    pub fn builder(input: &str) -> Result<DiceBuilder, DiceBuildingError> {
+        DiceBuilder::from_string(input)
+    }
+
+    pub fn from_builder(dice_builder: DiceBuilder) -> Dice {
+        let distribution: Vec<(Value, Prob)> = dice_builder.distribution_iter().collect();
         let max: Value = distribution.last().map(|e| e.0).unwrap();
         let min: Value = distribution.first().map(|e| e.0).unwrap();
 
@@ -83,7 +92,7 @@ impl Dice {
             median,
             distribution,
             accumulated_distribution,
-            builder_string,
+            builder_string: dice_builder.to_string(),
         }
     }
 

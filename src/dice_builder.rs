@@ -1,6 +1,6 @@
 use super::{
     dice::Dice,
-    dice_string_parser::{self, GraphBuildingError},
+    dice_string_parser::{self, DiceBuildingError},
 };
 use core::panic;
 use std::{
@@ -24,21 +24,52 @@ pub enum DiceBuilder {
     SampleSumCompound(Box<DiceBuilder>, Box<DiceBuilder>),
 }
 
-impl ToString for DiceBuilder {
-    fn to_string(&self) -> String {
-        "DiceBuilder".to_owned()
-    }
-}
-
 impl DiceBuilder {
     pub fn build(self) -> Dice {
-        let distribution: Vec<(Value, Prob)> = self.distribution_iter().collect();
-        Dice::from_distribution_and_builder_string(distribution, self.to_string())
+        Dice::from_builder(self)
     }
 
-    pub fn build_from_string(input: &str) -> Result<Dice, GraphBuildingError> {
+    pub fn build_from_string(input: &str) -> Result<Dice, DiceBuildingError> {
         let builder = DiceBuilder::from_string(input)?;
         Ok(builder.build())
+    }
+
+    /// constructs a string from the DiceBuilder that can be used to reconstruct an equivalent DiceBuilder from it.
+    ///
+    /// currently fails to construct a correct string in case dices with a non-1 minimum are present. This is because there is no string notation for dices with a non-1 minimum yet.
+    pub fn to_string(&self) -> String {
+        match self {
+            DiceBuilder::Constant(i) => i.to_string(),
+            DiceBuilder::FairDie { min, max } => match *min == 1 {
+                true => format!("d{max}"),
+                false => "".to_owned(), // this is currently a weak point where errors can occur
+            },
+            DiceBuilder::SumCompound(v) => v
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join("+"),
+            DiceBuilder::ProductCompound(v) => v
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join("*"),
+            DiceBuilder::MaxCompound(v) => format!(
+                "max({})",
+                v.iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
+            DiceBuilder::MinCompound(v) => format!(
+                "min({})",
+                v.iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
+            DiceBuilder::SampleSumCompound(a, b) => format!("{}x{}", a.to_string(), b.to_string()),
+        }
     }
 
     fn distribution_hashmap(&self) -> DistributionHashMap {
@@ -95,7 +126,7 @@ impl DiceBuilder {
         }
     }
 
-    fn distribution_iter(&self) -> Distribution {
+    pub fn distribution_iter(&self) -> Distribution {
         let mut distribution_vec = self
             .distribution_hashmap()
             .into_iter()
@@ -108,7 +139,7 @@ impl DiceBuilder {
     //     self.distribution_iter().collect()
     // }
 
-    pub fn from_string(input: &str) -> Result<Self, GraphBuildingError> {
+    pub fn from_string(input: &str) -> Result<Self, DiceBuildingError> {
         dice_string_parser::string_to_factor(input)
     }
 }

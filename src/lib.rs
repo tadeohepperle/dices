@@ -127,4 +127,10 @@ mod tests {
             assert_eq!(e, Prob::new(1u64, 1u64));
         }
     }
+    #[test]
+    fn test_dice_builder_to_string() {
+        let string_in = "1xd6+7";
+        let string_out = DiceBuilder::from_string(string_in).unwrap().to_string();
+        assert_eq!(string_in, string_out)
+    }
 }
