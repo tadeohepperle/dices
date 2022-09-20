@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use fraction::ToPrimitive;
+use fraction::{One, ToPrimitive, Zero};
 
 use crate::{dice_string_parser::DiceBuildingError, DiceBuilder};
 
@@ -153,6 +153,54 @@ impl Dice {
     /// rolls the [`Dice`] `n` times and returns the results as a vector
     pub fn roll_multiple(&self, n: usize) -> Vec<Value> {
         (1..n).map(|_| self.roll()).collect()
+    }
+
+    /// probability that a number sampled from `self` is `value`
+    pub fn prob(&self, value: Value) -> Prob {
+        match self.distribution.iter().find(|(v, _)| *v == value) {
+            None => Prob::zero(),
+            Some((_, p)) => p.clone(),
+        }
+    }
+
+    /// probability that a number sampled from `self` is less than or equal to `value`
+    pub fn prob_lte(&self, value: Value) -> Prob {
+        let mut lastp: Option<&Prob> = None;
+        for (v, p) in self.cumulative_distribution.iter() {
+            if *v > value {
+                break;
+            }
+            lastp = Some(p);
+        }
+        match lastp {
+            None => Prob::zero(),
+            Some(p) => p.clone(),
+        }
+    }
+
+    /// probability that a number sampled from `self` is less than `value`
+    pub fn prob_lt(&self, value: Value) -> Prob {
+        let mut lastp: Option<&Prob> = None;
+        for (v, p) in self.cumulative_distribution.iter() {
+            if *v >= value {
+                break;
+            }
+            lastp = Some(p);
+        }
+        match lastp {
+            None => Prob::zero(),
+            Some(p) => p.clone(),
+        }
+    }
+
+    /// probability that a number sampled from `self` is greater than or equal to `value`
+    pub fn prob_gte(&self, value: Value) -> Prob {
+        return Prob::one() - self.prob_lt(value);
+    }
+
+    /// probability that a number sampled from `self` is greater than `value`
+    pub fn prob_gt(&self, value: Value) -> Prob {
+        return Prob::one() - self.prob_lte(value);
     }
 }
 

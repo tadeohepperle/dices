@@ -59,6 +59,10 @@
 //! "d20*d20*d20"
 //! ```   
 //!
+//! # Calculating Probabilities
+//!
+//!
+//!
 //! # Background Information
 //! This [`crate`] uses the [`BigFraction`](fraction::BigFraction) data type from the [`fraction`](fraction) crate to represent probabilities
 //! This is quite nice because it allows for precise probabilities with infinite precision.
@@ -81,7 +85,10 @@ pub use dice_builder::DiceBuilder;
 mod tests {
     use fraction::ToPrimitive;
 
-    use crate::dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value};
+    use crate::{
+        dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value},
+        Dice,
+    };
 
     #[test]
     fn adding_distributions_coin_times_2() {
@@ -210,5 +217,15 @@ mod tests {
         let dice = dice_builder.build();
         let mean = dice.mean;
         assert_eq!(mean.to_f64().unwrap(), 11.0);
+    }
+
+    #[test]
+    fn prob_tests() {
+        let d = Dice::build_from_string("2w6").unwrap();
+        assert_eq!(d.prob(7), Prob::new(1u64, 6u64));
+        assert_eq!(d.prob_lt(7), Prob::new(15u64, 36u64));
+        assert_eq!(d.prob_gt(7), Prob::new(15u64, 36u64));
+        assert_eq!(d.prob_lte(7), Prob::new(21u64, 36u64));
+        assert_eq!(d.prob_gte(7), Prob::new(21u64, 36u64));
     }
 }
