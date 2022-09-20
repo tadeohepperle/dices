@@ -32,8 +32,8 @@ pub struct Dice {
     pub max: Value,
     /// median  of the probability distribution
     pub median: Value,
-    /// mode of the probability distribution
-    pub mode: Value,
+    /// mode or modes of the probability distribution
+    pub mode: Vec<Value>,
     /// mean of the probability distribution
     pub mean: AggrValue,
     /// standard deviation of the probability distribution
@@ -74,7 +74,7 @@ impl Dice {
         let median_prob: Prob = Prob::new(1u64, 2u64);
         // todo median
         let mut median: Option<Value> = None;
-        let mut mode: Option<(Value, Prob)> = None;
+        let mut mode: Option<(Vec<Value>, Prob)> = None;
 
         for (val, prob) in distribution.iter().cloned() {
             mean += prob.clone() * Prob::from(val);
@@ -88,13 +88,16 @@ impl Dice {
                 }
             }
             match &mode {
-                Some((_, p)) => {
+                Some((old_vec, p)) => {
                     if prob > *p {
-                        mode = Some((val, prob));
+                        mode = Some((vec![val], prob));
+                    } else if prob == *p {
+                        let newvec: Vec<Value> = [val].iter().chain(old_vec).map(|&x| x).collect();
+                        mode = Some((newvec, prob));
                     }
                 }
                 None => {
-                    mode = Some((val, prob));
+                    mode = Some((vec![val], prob));
                 }
             }
         }
@@ -145,6 +148,11 @@ impl Dice {
             }
         }
         panic! {"Something went wrong in rolling. random value: {r}"}
+    }
+
+    /// rolls the [`Dice`] `n` times and returns the results as a vector
+    pub fn roll_multiple(&self, n: usize) -> Vec<Value> {
+        (1..n).map(|_| self.roll()).collect()
     }
 }
 
