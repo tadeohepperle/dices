@@ -2,6 +2,7 @@
 //!
 //!
 
+#![warn(missing_docs)]
 mod dice;
 mod dice_builder;
 mod dice_string_parser;
@@ -11,6 +12,8 @@ pub use dice_builder::DiceBuilder;
 
 #[cfg(test)]
 mod tests {
+    use fraction::ToPrimitive;
+
     use crate::dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value};
 
     #[test]
@@ -19,7 +22,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 0, max: 1 };
         let f3 = DiceBuilder::ProductCompound(vec![f1, f2]);
         let dice = f3.build();
-        let d_vec = dice.distribution();
+        let d_vec = dice.distribution;
         assert_eq!(
             d_vec,
             vec![(0, Prob::new(1u64, 2u64)), (2, Prob::new(1u64, 2u64))]
@@ -32,7 +35,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 1, max: 5 };
         let f3 = DiceBuilder::SumCompound(vec![f1, f2]);
         let dice = f3.build();
-        let d_vec = dice.distribution();
+        let d_vec = dice.distribution;
         println!("{:?}", d_vec);
         assert_eq!(d_vec[0], (2, Prob::new(1u64, 25u64)));
     }
@@ -44,7 +47,7 @@ mod tests {
             f = f + Box::new(DiceBuilder::FairDie { min: 1, max: 6 });
         }
 
-        let maxval = f.build().distribution().iter().map(|e| e.0).max().unwrap();
+        let maxval = f.build().distribution.iter().map(|e| e.0).max().unwrap();
 
         assert_eq!(maxval, 120);
     }
@@ -55,7 +58,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
         let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
         let dice = f.build();
-        let d = dice.distribution();
+        let d = dice.distribution;
         assert_eq!(d, unif(vec![2, 3, 3, 4]));
     }
     #[test]
@@ -65,7 +68,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
         let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
         let dice = f.build();
-        let d = dice.distribution();
+        let d = dice.distribution;
         assert_eq!(d, unif(vec![1, 2, 1, 2, 2, 3, 3, 4]));
     }
 
@@ -76,7 +79,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
         let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
         let dice = f.build();
-        let d = dice.distribution();
+        let d = dice.distribution;
         assert_eq!(d, unif(vec![0, 0, 1, 2]));
     }
 
@@ -87,7 +90,7 @@ mod tests {
         let f2 = DiceBuilder::FairDie { min: 1, max: 6 };
         let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
         let dice = f.build();
-        let d = dice.distribution();
+        let d = dice.distribution;
         assert_eq!(d, unif(vec![0]));
     }
 
@@ -116,7 +119,7 @@ mod tests {
                 DiceBuilder::from_string(&e)
                     .unwrap()
                     .build()
-                    .accumulated_distribution()
+                    .cumulative_distribution
                     .last()
                     .unwrap()
                     .1
@@ -132,5 +135,13 @@ mod tests {
         let string_in = "1xd6+7";
         let string_out = DiceBuilder::from_string(string_in).unwrap().to_string();
         assert_eq!(string_in, string_out)
+    }
+
+    #[test]
+    fn test_build_and_mean() {
+        let dice_builder = DiceBuilder::from_string("2d6+4").unwrap();
+        let dice = dice_builder.build();
+        let mean = dice.mean;
+        assert_eq!(mean.to_f64().unwrap(), 11.0);
     }
 }

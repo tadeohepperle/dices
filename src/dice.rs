@@ -6,39 +6,68 @@ use crate::{dice_string_parser::DiceBuildingError, DiceBuilder};
 
 use super::dice_builder::{AggrValue, Prob, Value};
 
+/// A [`Dice`] represents a discrete probability distribution, providing paramters like mean, standard deviation and the `roll()` method to randomly sample from this distribution
+///
+/// A [`Dice`] is always created using a [`DiceBuilder`]. The simplest way is to use:
+/// ```
+/// let dice = Dice::build_from_string("2w6+3")
+/// ```
+/// which is equivalent to
+/// ```
+/// let dice_builder = DiceBuilder::from_string("2w6+3")
+/// let dice = dice_builder.build()
+/// ```
+///
+/// Values of the distribution are of type [`i64`]
+/// The probabilities are of type [`BigFraction`](fraction::BigFraction) from the [`fraction`](fraction) crate.
+/// This allows for precise probabilites with infinite precision, at the cost of some slower operations compared to floats, but avoids pitfalls like floating point precision errors.
+///
 #[derive(Debug)]
 pub struct Dice {
+    /// a string that can be used to recreate the [`DiceBuilder`] that the [`Dice`] was created from.
     pub builder_string: String,
+    /// mininum value of the probability distribution
     pub min: Value,
+    /// maximum value of the probability distribution
     pub max: Value,
+    /// median  of the probability distribution
     pub median: Value,
+    /// mode of the probability distribution
     pub mode: Value,
+    /// mean of the probability distribution
     pub mean: AggrValue,
+    /// standard deviation of the probability distribution
     pub sd: AggrValue,
+    /// the probability mass function (pmf) of the dice
+    ///
+    /// tuples of each value and its probability in ascending order (regarding value)
     pub distribution: Vec<(Value, Prob)>,
-    pub accumulated_distribution: Vec<(Value, Prob)>,
+    /// the cumulative distribution function (cdf) of the dice
+    ///
+    /// tuples of each value and its cumulative probability in ascending order (regarding value)
+    pub cumulative_distribution: Vec<(Value, Prob)>,
 }
 
 impl Dice {
+    /// uses the `input` to create a [`DiceBuilder`] and calls `build()` on it
     pub fn build_from_string(input: &str) -> Result<Dice, DiceBuildingError> {
         let builder = DiceBuilder::from_string(input)?;
         Ok(builder.build())
     }
 
+    /// uses the `input` to create a [`DiceBuilder`]. Same as [`DiceBuilder::from_string(input)`]
     pub fn builder(input: &str) -> Result<DiceBuilder, DiceBuildingError> {
         DiceBuilder::from_string(input)
     }
 
+    /// builds a [`Dice`] from a given [`DiceBuilder`]
+    ///
+    /// this method calculates the distribution and all distribution paramters on the fly, to create the [`Dice`].
+    /// Depending on the complexity of the `dice_builder` heavy lifting like convoluting probability distributions may take place here.
     pub fn from_builder(dice_builder: DiceBuilder) -> Dice {
         let distribution: Vec<(Value, Prob)> = dice_builder.distribution_iter().collect();
         let max: Value = distribution.last().map(|e| e.0).unwrap();
         let min: Value = distribution.first().map(|e| e.0).unwrap();
-
-        // match distribution.first() {
-        //     None => None,
-        //     Some(e) => Some(e.0),
-        // }     .unwrap();
-
         let mut mean: AggrValue = AggrValue::from(0);
 
         let mut total_probability: Prob = Prob::new(0u64, 1u64);
@@ -91,30 +120,31 @@ impl Dice {
             max,
             median,
             distribution,
-            accumulated_distribution,
+            cumulative_distribution: accumulated_distribution,
             builder_string: dice_builder.to_string(),
         }
     }
 
+    /// Rolls a random number for this [`Dice`].
+    ///
+    /// For this a random float is uniformly sampled over the interval [0,1) and checked against the accumulated discrete porbability distribution of this [`Dice`].
+    ///
+    /// # Examples
+    ///
+    /// rolling 2 standard playing dice:
+    /// ```
+    /// let d : Dice = Dice::build_from_string("2d6");
+    /// println!("rolled: {}", d.roll());
+    /// //prints something like: "rolled: 9"
+    /// ```
     pub fn roll(&self) -> Value {
         let r: f64 = rand::random();
-        for (val, prob) in self.accumulated_distribution.iter() {
+        for (val, prob) in self.cumulative_distribution.iter() {
             if prob.to_f64().unwrap() >= r {
                 return *val;
             }
         }
         panic! {"Something went wrong in rolling. random value: {r}"}
-    }
-
-    /// get the discrete probability distribution
-    ///
-    /// this is a simple getter, calculating the distribution is performed in the DiceBuilder::build() function
-    pub fn distribution(&self) -> &[(Value, Prob)] {
-        &self.distribution
-    }
-
-    pub fn accumulated_distribution(&self) -> &[(Value, Prob)] {
-        &self.accumulated_distribution
     }
 }
 

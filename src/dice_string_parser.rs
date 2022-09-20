@@ -2,16 +2,6 @@ use std::vec;
 
 use super::dice_builder::{DiceBuilder, Value};
 
-// pub fn from_string(input: &str) -> Box<Factor> {
-//     /*
-//     Example input: max(1w10, 1w3+3w2)+3
-
-//     1. remove whitespace
-//     2. convert into string of symbols
-
-//     */
-// }
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum InputSymbol {
     Constant(Value),
@@ -504,7 +494,7 @@ mod test {
             let factor = string_to_factor("min(8w5,8w5)+4").unwrap();
             let max = factor
                 .build()
-                .distribution()
+                .distribution
                 .iter()
                 .map(|e| e.0)
                 .max()

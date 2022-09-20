@@ -13,22 +13,106 @@ pub type AggrValue = fraction::BigFraction;
 type Distribution = Box<dyn Iterator<Item = (Value, Prob)>>;
 pub type DistributionHashMap = HashMap<Value, Prob>;
 
+/// A [`DiceBuilder`] tree-like data structure representing the components of a dice formula like `max(2d6+4,d20)`
+///
+/// The tree can be used to calculate a discrete probability distribution. This happens when the `build()` method is called and creates a [`Dice`].
+///
+/// # Examples
+/// ```
+/// let dice_builder = DiceBuilder::from_string("2d6+4").unwrap();
+/// let dice = dice_builder.build();
+/// let mean = dice.mean.to_f64().unwrap();
+/// assert_eq!(mean, 11.0);
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum DiceBuilder {
+    /// A constant value (i64) that does not
     Constant(Value),
-    FairDie { min: Value, max: Value },
+    /// A discrete uniform distribution over the integer interval `[min, max]`
+    FairDie {
+        /// minimum value of the die, inclusive
+        min: Value,
+        /// maximum value of the die, inclusive
+        max: Value,
+    },
+    /// the sum of multiple [DiceBuilder] instances, like: d6 + 3 + d20
     SumCompound(Vec<DiceBuilder>),
+    /// the product of multiple [DiceBuilder] instances, like: d6 * 3 * d20
     ProductCompound(Vec<DiceBuilder>),
+    /// the maximum of multiple [DiceBuilder] instances, like: max(d6,3,d20)
     MaxCompound(Vec<DiceBuilder>),
+    /// the minimum of multiple [DiceBuilder] instances, like: min(d6,3,d20)
     MinCompound(Vec<DiceBuilder>),
+    /// SampleSumCompound(a,b) can be interpreted as follows:
+    /// A [`DiceBuilder`] `b` is sampled `a` times independently of each other.
+    ///
+    /// # Examples
+    /// throwing 5 six-sided dice:
+    /// ```
+    /// let five_six_sided_dice = SampleSumCompound(
+    ///     Box::new(Constant(5)),
+    ///     Box::new(FairDie{min: 1, max: 6})
+    /// )
+    /// ```
+    ///
+    /// throwing 1, 2 or 3 (randomly determined) six-sided and summing them up:
+    /// ```
+    /// let dice_1_2_or_3 = SampleSumCompound(
+    ///     Box::new(FairDie{min: 1, max: 3}),
+    ///     Box::new(FairDie{min: 1, max: 6})
+    /// )
+    /// ```
+    ///
+    /// for two constants, it is the same as multiplication:
+    /// ```
+    /// let b1 = SampleSumCompound(
+    ///     Box::new(Constant(2)),
+    ///     Box::new(Constant(3))
+    /// )
+    /// let b2 = ProductCompound(vec![Constant(2),Constant(3)])
+    /// assert_eq!(b1.build(), b2.build())
+    ///
+    /// ```
     SampleSumCompound(Box<DiceBuilder>, Box<DiceBuilder>),
 }
 
 impl DiceBuilder {
+    /// parses the string into a tree-like structure to create a [`DiceBuilder`]
+    ///
+    /// # Syntax Examples:
+    /// |-----|
+    /// |     |
+    /// 4 six-sided dice: "4d6"
+    ///
+    /// # Examples:
+    /// throwing 3 six-sided dice:
+    /// ```
+    /// let builder = DiceBuilder::from_string("3d6")
+    /// let builder_2 = DiceBuilder::from_string("3 d6  ")
+    /// let builder_2 = DiceBuilder::from_string("3xd6") // explicitly using sample sum
+    /// assert_eq!(builder, builder_2)
+    /// assert_eq!(builder_2, builder_3)
+    /// ```
+    ///
+    /// the minimum and maximum of multiple dice:
+    /// ```
+    /// let min_builder = DiceBuilder::from_string("min(d6,d6)")
+    /// let max_builder = DiceBuilder::from_string("max(d6,d6,d20)")
+    /// ```
+    ///
+    pub fn from_string(input: &str) -> Result<Self, DiceBuildingError> {
+        dice_string_parser::string_to_factor(input)
+    }
+
+    /// builds a [`Dice`] from [`self`]
+    ///
+    /// this method calculates the distribution and all distribution paramters on the fly, to create the [`Dice`].
+    /// Depending on the complexity of the `dice_builder` heavy lifting like convoluting probability distributions may take place here.
     pub fn build(self) -> Dice {
         Dice::from_builder(self)
     }
 
+    /// shortcut for `DiceBuilder::from_string(input).build()`
     pub fn build_from_string(input: &str) -> Result<Dice, DiceBuildingError> {
         let builder = DiceBuilder::from_string(input)?;
         Ok(builder.build())
@@ -126,6 +210,10 @@ impl DiceBuilder {
         }
     }
 
+    /// iterator for the probability mass function (pmf) of the [`DiceBuilder`], with tuples for each value with its probability in ascending order (regarding value)
+    ///
+    /// Calculates the distribution and all distribution paramters.
+    /// Depending on the complexity of [`self`] heavy lifting like convoluting probability distributions may take place here.
     pub fn distribution_iter(&self) -> Distribution {
         let mut distribution_vec = self
             .distribution_hashmap()
@@ -133,14 +221,6 @@ impl DiceBuilder {
             .collect::<Vec<(Value, Prob)>>();
         distribution_vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         Box::new(distribution_vec.into_iter())
-    }
-
-    // fn distribution_vec(&self) -> Vec<(Value, Prob)> {
-    //     self.distribution_iter().collect()
-    // }
-
-    pub fn from_string(input: &str) -> Result<Self, DiceBuildingError> {
-        dice_string_parser::string_to_factor(input)
     }
 }
 
