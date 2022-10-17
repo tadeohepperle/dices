@@ -19,6 +19,7 @@ pub type DistributionHashMap = HashMap<Value, Prob>;
 ///
 /// # Examples
 /// ```
+/// use dices::DiceBuilder;
 /// let dice_builder = DiceBuilder::from_string("2d6+4").unwrap();
 /// let dice = dice_builder.build();
 /// let mean = dice.mean.to_f64().unwrap();
@@ -57,6 +58,7 @@ pub enum DiceBuilder {
     ///
     /// throwing 1, 2 or 3 (randomly determined) six-sided and summing them up:
     /// ```
+    /// use dices::DiceBuilder::*;
     /// let dice_1_2_or_3 = SampleSumCompound(
     ///     Box::new(FairDie{min: 1, max: 3}),
     ///     Box::new(FairDie{min: 1, max: 6})
@@ -65,6 +67,7 @@ pub enum DiceBuilder {
     ///
     /// for two constants, it is the same as multiplication:
     /// ```
+    /// use dices::DiceBuilder::*;
     /// let b1 = SampleSumCompound(
     ///     Box::new(Constant(2)),
     ///     Box::new(Constant(3))

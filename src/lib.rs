@@ -3,12 +3,13 @@
 //!
 //! To create a [`Dice`], build it from a [`DiceBuilder`] or directly from a string:
 //! ```
-//! let dice: Dice = DiceBuilder::from_string("2d6").unwrap().build()
-//! let dice: Dice = Dice::build_from_string("2d6").unwrap()
+//! use dices::{Dice, DiceBuilder};
+//! let dice: Dice = DiceBuilder::from_string("2d6").unwrap().build();
+//! let dice: Dice = Dice::build_from_string("2d6").unwrap();
 //! ```
 //! ---
 //! Properties of these dice are calculated in the `build()` function:
-//! ```
+//! ```txt
 //! min: 2
 //! max: 12
 //! mode: vec![7],
@@ -19,14 +20,13 @@
 //! ```
 //! A DiceBuildingError could be returned, if the `input` string could not be parsed into a proper syntax tree for the [`DiceBuilder`].
 //! ---
-//! To roll a [`Dice`] call the `roll()` function:
+//! To roll a [`Dice`] call the `roll()` function, for rolling multiple times call the `roll_multiple()` function:
 //! ```
+//! use dices::Dice;
+//! let dice = Dice::build_from_string("2d6").unwrap();
 //! let num = dice.roll();
-//! // num will be some i64 between 2 and 12, sampled according to the dices distribution
-//! ```
-//! For rolling multiple times call the `roll_multiple()` function:
-//! ```
 //! let nums = dice.roll_multiple(10);
+//! // num will be some i64 between 2 and 12, sampled according to the dices distribution
 //! // nums could be vec![7,3,9,11,7,8,5,6,3,6]
 //! ```
 //!
@@ -79,7 +79,18 @@ mod dice_builder;
 mod dice_string_parser;
 
 pub use dice::Dice;
+
 pub use dice_builder::DiceBuilder;
+
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+// wasm-pack build --features  wasm
+#[cfg(feature = "wasm")]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn greet() -> String {
+    format!("Hello, wasm-game-of-life!")
+}
 
 #[cfg(test)]
 mod tests {

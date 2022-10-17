@@ -10,7 +10,16 @@ description = "calculate discrete probability distributions and statistics for c
 readme = "README.md"
 repository = "https://github.com/tadeohepperle/dices"
 
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+wasm = ["dep:wasm-bindgen","dep:serde-wasm-bindgen","dep:serde"]
+
 [dependencies]
 fraction = "0.11.1"
 regex = "1"
-rand = "0.8.5"
+js-sys = "0.3.60"
+wasm-bindgen = {version = "0.2.63", optional = true, features = ["serde-serialize"]}
+serde = { version = "1.0", features = ["derive"], optional = true}
+serde-wasm-bindgen = {version = "0.4", optional = true}

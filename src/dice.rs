@@ -1,6 +1,11 @@
-use std::ops::Add;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use fraction::{One, ToPrimitive, Zero};
+#[cfg(feature = "wasm")]
+use serde::{Deserialize, Serialize};
+
+use fraction::{BigFraction, One, ToPrimitive, Zero};
+use std::{fmt::Display, ops::Add};
 
 use crate::{dice_string_parser::DiceBuildingError, DiceBuilder};
 
@@ -21,8 +26,7 @@ use super::dice_builder::{AggrValue, Prob, Value};
 /// Values of the distribution are of type [`i64`]
 /// The probabilities are of type [`BigFraction`](fraction::BigFraction) from the [`fraction`](fraction) crate.
 /// This allows for precise probabilites with infinite precision, at the cost of some slower operations compared to floats, but avoids pitfalls like floating point precision errors.
-///
-#[derive(Debug)]
+
 pub struct Dice {
     /// a string that can be used to recreate the [`DiceBuilder`] that the [`Dice`] was created from.
     pub builder_string: String,
@@ -141,7 +145,7 @@ impl Dice {
     /// //prints something like: "rolled: 9"
     /// ```
     pub fn roll(&self) -> Value {
-        let r: f64 = rand::random();
+        let r: f64 = js_sys::Math::random();
         for (val, prob) in self.cumulative_distribution.iter() {
             if prob.to_f64().unwrap() >= r {
                 return *val;
@@ -224,3 +228,118 @@ fn accumulated_distribution_from_distribution(
     }
     acc_distr
 }
+
+#[cfg(feature = "wasm")]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct JsDice {
+    dice: Dice,
+}
+
+#[cfg(feature = "wasm")]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl JsDice {
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn builder_string(&self) -> String {
+        self.dice.builder_string.to_string()
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn min(&self) -> Value {
+        self.dice.min
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn max(&self) -> Value {
+        self.dice.max
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn median(&self) -> Value {
+        self.dice.median
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn mode(&self) -> Vec<Value> {
+        self.dice.mode.iter().cloned().collect()
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn mean(&self) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.mean)
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn sd(&self) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.sd)
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn distribution(&self) -> wasm_bindgen::JsValue {
+        let js_dist = JsDistribution::from_distribution(&self.dice.distribution);
+        serde_wasm_bindgen::to_value(&js_dist).unwrap()
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn cumulative_distribution(&self) -> wasm_bindgen::JsValue {
+        let js_dist = JsDistribution::from_distribution(&self.dice.cumulative_distribution);
+        serde_wasm_bindgen::to_value(&js_dist).unwrap()
+    }
+
+    pub fn build_from_string(input: &str) -> Result<JsDice, i64> {
+        match DiceBuilder::from_string(input) {
+            Ok(builder) => Ok(JsDice {
+                dice: builder.build(),
+            }),
+            Err(_) => Err(0),
+        }
+    }
+
+    pub fn roll(&self) -> Value {
+        self.dice.roll()
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsDistribution {
+    pub values: Vec<(Value, JsFraction)>,
+}
+
+#[cfg(feature = "wasm")]
+impl JsDistribution {
+    pub fn from_distribution(dist: &Vec<(Value, Prob)>) -> JsDistribution {
+        JsDistribution {
+            values: dist
+                .iter()
+                .map(|e| (e.0, JsFraction::from_big_fraction(&e.1)))
+                .collect(),
+        }
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct JsFraction {
+    string: String,
+    pub float: f32,
+}
+
+#[cfg(feature = "wasm")]
+impl Display for JsFraction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.string)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl JsFraction {
+    pub fn from_big_fraction(big_fraction: &BigFraction) -> JsFraction {
+        JsFraction {
+            string: big_fraction.to_string(),
+            float: big_fraction.to_f32().unwrap(),
+        }
+    }
+}
+
+// https://rustwasm.github.io/wasm-bindgen/reference/arbitrary-data-with-serde.html
