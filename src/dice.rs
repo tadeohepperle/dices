@@ -297,6 +297,26 @@ impl JsDice {
     pub fn roll(&self) -> Value {
         self.dice.roll()
     }
+
+    /// probability that a number sampled from `self` is less than `value`
+    pub fn prob_lt(&self, value: Value) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.prob_lt(value))
+    }
+
+    /// probability that a number sampled from `self` is less or equal than `value`
+    pub fn prob_lte(&self, value: Value) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.prob_lte(value))
+    }
+
+    /// probability that a number sampled from `self` is greater than or equal to `value`
+    pub fn prob_gte(&self, value: Value) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.prob_gte(value))
+    }
+
+    /// probability that a number sampled from `self` is greater than `value`
+    pub fn prob_gt(&self, value: Value) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.prob_gt(value))
+    }
 }
 
 #[cfg(feature = "wasm")]
