@@ -77,6 +77,7 @@
 mod dice;
 mod dice_builder;
 mod dice_string_parser;
+mod wasm_safe;
 
 pub use dice::Dice;
 
@@ -85,11 +86,11 @@ pub use dice_builder::DiceBuilder;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-// wasm-pack build --features  wasm
+// wasm-pack build --features wasm
 #[cfg(feature = "wasm")]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn greet() -> String {
-    format!("Hello, wasm-game-of-life!")
+    format!("Hello, from dices instantly")
 }
 
 #[cfg(test)]

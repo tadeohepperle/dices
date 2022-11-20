@@ -122,7 +122,7 @@ enum GraphSeq {
     SampleSum(Box<GraphSeq>, Box<GraphSeq>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DiceBuildingError {
     GraphSeqWithoutVec,
     AddSymbolInNonAddSequence,

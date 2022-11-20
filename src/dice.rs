@@ -7,7 +7,11 @@ use serde::{Deserialize, Serialize};
 use fraction::{BigFraction, One, ToPrimitive, Zero};
 use std::{fmt::Display, ops::Add};
 
-use crate::{dice_string_parser::DiceBuildingError, DiceBuilder};
+use crate::{
+    dice_string_parser::DiceBuildingError,
+    wasm_safe::{elapsed_millis, random_number_between_0_and_1, WasmSafeInstant},
+    DiceBuilder,
+};
 
 use super::dice_builder::{AggrValue, Prob, Value};
 
@@ -15,18 +19,21 @@ use super::dice_builder::{AggrValue, Prob, Value};
 ///
 /// A [`Dice`] is always created using a [`DiceBuilder`]. The simplest way is to use:
 /// ```
-/// let dice = Dice::build_from_string("2w6+3")
+/// use dices::Dice;
+/// let dice = Dice::build_from_string("2w6+3").unwrap();
 /// ```
 /// which is equivalent to
 /// ```
-/// let dice_builder = DiceBuilder::from_string("2w6+3")
-/// let dice = dice_builder.build()
+/// use dices::DiceBuilder;
+/// let dice_builder = DiceBuilder::from_string("2w6+3").unwrap();
+/// let dice = dice_builder.build();
 /// ```
 ///
 /// Values of the distribution are of type [`i64`]
 /// The probabilities are of type [`BigFraction`](fraction::BigFraction) from the [`fraction`](fraction) crate.
 /// This allows for precise probabilites with infinite precision, at the cost of some slower operations compared to floats, but avoids pitfalls like floating point precision errors.
 
+#[derive(Debug, PartialEq)]
 pub struct Dice {
     /// a string that can be used to recreate the [`DiceBuilder`] that the [`Dice`] was created from.
     pub builder_string: String,
@@ -50,6 +57,9 @@ pub struct Dice {
     ///
     /// tuples of each value and its cumulative probability in ascending order (regarding value)
     pub cumulative_distribution: Vec<(Value, Prob)>,
+
+    /// time it took to build the dice in microseconds
+    pub build_time: u64,
 }
 
 impl Dice {
@@ -69,6 +79,7 @@ impl Dice {
     /// this method calculates the distribution and all distribution paramters on the fly, to create the [`Dice`].
     /// Depending on the complexity of the `dice_builder` heavy lifting like convoluting probability distributions may take place here.
     pub fn from_builder(dice_builder: DiceBuilder) -> Dice {
+        let start_instant = WasmSafeInstant::now();
         let distribution: Vec<(Value, Prob)> = dice_builder.distribution_iter().collect();
         let max: Value = distribution.last().map(|e| e.0).unwrap();
         let min: Value = distribution.first().map(|e| e.0).unwrap();
@@ -119,6 +130,7 @@ impl Dice {
 
         let accumulated_distribution = accumulated_distribution_from_distribution(&distribution);
 
+        let build_time: u64 = elapsed_millis(&start_instant);
         Dice {
             mean,
             sd,
@@ -129,6 +141,7 @@ impl Dice {
             distribution,
             cumulative_distribution: accumulated_distribution,
             builder_string: dice_builder.to_string(),
+            build_time,
         }
     }
 
@@ -140,12 +153,13 @@ impl Dice {
     ///
     /// rolling 2 standard playing dice:
     /// ```
-    /// let d : Dice = Dice::build_from_string("2d6");
+    /// use dices::Dice;
+    /// let d : Dice = Dice::build_from_string("2d6").unwrap();
     /// println!("rolled: {}", d.roll());
     /// //prints something like: "rolled: 9"
     /// ```
     pub fn roll(&self) -> Value {
-        let r: f64 = js_sys::Math::random();
+        let r = random_number_between_0_and_1();
         for (val, prob) in self.cumulative_distribution.iter() {
             if prob.to_f64().unwrap() >= r {
                 return *val;
@@ -283,6 +297,11 @@ impl JsDice {
     pub fn cumulative_distribution(&self) -> wasm_bindgen::JsValue {
         let js_dist = JsDistribution::from_distribution(&self.dice.cumulative_distribution);
         serde_wasm_bindgen::to_value(&js_dist).unwrap()
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
+    pub fn build_time(&self) -> u64 {
+        self.dice.build_time
     }
 
     pub fn build_from_string(input: &str) -> Result<JsDice, i64> {

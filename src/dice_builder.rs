@@ -20,6 +20,7 @@ pub type DistributionHashMap = HashMap<Value, Prob>;
 /// # Examples
 /// ```
 /// use dices::DiceBuilder;
+/// use fraction::ToPrimitive;
 /// let dice_builder = DiceBuilder::from_string("2d6+4").unwrap();
 /// let dice = dice_builder.build();
 /// let mean = dice.mean.to_f64().unwrap();
@@ -50,10 +51,11 @@ pub enum DiceBuilder {
     /// # Examples
     /// throwing 5 six-sided dice:
     /// ```
+    /// use dices::DiceBuilder::*;
     /// let five_six_sided_dice = SampleSumCompound(
     ///     Box::new(Constant(5)),
     ///     Box::new(FairDie{min: 1, max: 6})
-    /// )
+    /// );
     /// ```
     ///
     /// throwing 1, 2 or 3 (randomly determined) six-sided and summing them up:
@@ -62,7 +64,7 @@ pub enum DiceBuilder {
     /// let dice_1_2_or_3 = SampleSumCompound(
     ///     Box::new(FairDie{min: 1, max: 3}),
     ///     Box::new(FairDie{min: 1, max: 6})
-    /// )
+    /// );
     /// ```
     ///
     /// for two constants, it is the same as multiplication:
@@ -71,9 +73,9 @@ pub enum DiceBuilder {
     /// let b1 = SampleSumCompound(
     ///     Box::new(Constant(2)),
     ///     Box::new(Constant(3))
-    /// )
-    /// let b2 = ProductCompound(vec![Constant(2),Constant(3)])
-    /// assert_eq!(b1.build(), b2.build())
+    /// );
+    /// let b2 = ProductCompound(vec![Constant(2),Constant(3)]);
+    /// assert_eq!(b1.build().distribution, b2.build().distribution);
     ///
     /// ```
     SampleSumCompound(Box<DiceBuilder>, Box<DiceBuilder>),
@@ -90,17 +92,19 @@ impl DiceBuilder {
     /// # Examples:
     /// throwing 3 six-sided dice:
     /// ```
-    /// let builder = DiceBuilder::from_string("3d6")
-    /// let builder_2 = DiceBuilder::from_string("3 d6  ")
-    /// let builder_2 = DiceBuilder::from_string("3xd6") // explicitly using sample sum
-    /// assert_eq!(builder, builder_2)
-    /// assert_eq!(builder_2, builder_3)
+    /// use dices::DiceBuilder;
+    /// let builder = DiceBuilder::from_string("3d6");
+    /// let builder_2 = DiceBuilder::from_string("3 d6  ");
+    /// let builder_3 = DiceBuilder::from_string("3xd6"); // explicitly using sample sum
+    /// assert_eq!(builder, builder_2);
+    /// assert_eq!(builder_2, builder_3);
     /// ```
     ///
     /// the minimum and maximum of multiple dice:
     /// ```
-    /// let min_builder = DiceBuilder::from_string("min(d6,d6)")
-    /// let max_builder = DiceBuilder::from_string("max(d6,d6,d20)")
+    /// use dices::DiceBuilder;
+    /// let min_builder = DiceBuilder::from_string("min(d6,d6)");
+    /// let max_builder = DiceBuilder::from_string("max(d6,d6,d20)");
     /// ```
     ///
     pub fn from_string(input: &str) -> Result<Self, DiceBuildingError> {

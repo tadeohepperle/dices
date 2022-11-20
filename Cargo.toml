@@ -11,15 +11,26 @@ readme = "README.md"
 repository = "https://github.com/tadeohepperle/dices"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
-wasm = ["dep:wasm-bindgen","dep:serde-wasm-bindgen","dep:serde"]
+wasm = ["dep:wasm-bindgen","dep:serde-wasm-bindgen","dep:serde", "dep:web-sys"]
 
 [dependencies]
 fraction = "0.11.1"
 regex = "1"
 js-sys = "0.3.60"
+web-sys = {version = "0.3.60", optional=true, features=["Window", "Performance"]}
 wasm-bindgen = {version = "0.2.63", optional = true, features = ["serde-serialize"]}
 serde = { version = "1.0", features = ["derive"], optional = true}
 serde-wasm-bindgen = {version = "0.4", optional = true}
+rand = "0.8.5"
+
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "timing"
+harness = false
+crate-type = ["cdylib"]
