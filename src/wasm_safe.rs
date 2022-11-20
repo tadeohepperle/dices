@@ -1,3 +1,4 @@
+#[cfg(not(feature = "wasm"))]
 use rand::Rng;
 
 #[cfg(not(feature = "wasm"))]

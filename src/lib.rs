@@ -86,7 +86,7 @@ pub use dice_builder::DiceBuilder;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-// wasm-pack build --features wasm
+// wasm-pack build --features wasm --no-default-features
 #[cfg(feature = "wasm")]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn greet() -> String {

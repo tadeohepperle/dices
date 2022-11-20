@@ -3,7 +3,7 @@ use dices::*;
 
 // cargo bench
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("2d200", |b| {
+    c.bench_function("2d2000", |b| {
         b.iter(|| {
             let _ = Dice::build_from_string(black_box("2d200")).unwrap();
         })
