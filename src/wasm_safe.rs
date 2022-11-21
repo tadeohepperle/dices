@@ -32,11 +32,7 @@ pub fn elapsed_millis(instant: &WasmSafeInstant) -> u64 {
 
 #[cfg(feature = "wasm")]
 fn time_now_in_ms() -> f64 {
-    let window = web_sys::window().expect("should have a window in this context");
-    let performance = window
-        .performance()
-        .expect("performance should be available");
-    performance.now()
+    js_sys::Date::new_0().value_of()
 }
 
 #[cfg(feature = "wasm")]
