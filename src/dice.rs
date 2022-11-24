@@ -388,8 +388,8 @@ impl JsFraction {
             numer,
             denom,
             negative: match big_fraction.sign().unwrap() {
-                Sign::Plus => true,
-                Sign::Minus => false,
+                Sign::Plus => false,
+                Sign::Minus => true,
             },
             float: big_fraction.to_f32().unwrap(),
         }
