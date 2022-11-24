@@ -128,7 +128,8 @@ impl Dice {
         let median = median.unwrap();
         let mode = mode.unwrap().0;
 
-        let accumulated_distribution = accumulated_distribution_from_distribution(&distribution);
+        // TODO: MAYBE: make cumulative_distribution lazy?
+        let cumulative_distribution = accumulated_distribution_from_distribution(&distribution);
 
         let build_time: u64 = elapsed_millis(&start_instant);
         Dice {
@@ -139,7 +140,7 @@ impl Dice {
             max,
             median,
             distribution,
-            cumulative_distribution: accumulated_distribution,
+            cumulative_distribution,
             builder_string: dice_builder.to_string(),
             build_time,
         }
@@ -335,6 +336,23 @@ impl JsDice {
     /// probability that a number sampled from `self` is greater than `value`
     pub fn prob_gt(&self, value: Value) -> JsFraction {
         JsFraction::from_big_fraction(&self.dice.prob_gt(value))
+    }
+
+    /// returns \[prob_lt, prob_lte, prob, prob_gte, prob_gt\] as a vector.
+    /// Computes them more efficiently than if we use all the functions individually.
+    pub fn prob_all(&self, value: Value) -> wasm_bindgen::JsValue {
+        let gt = self.dice.prob_gt(value);
+        let eq = self.dice.prob(value);
+        let gte = &eq + &gt;
+        let lte = &Prob::one() - &gt;
+        let lt = &lte + &eq;
+
+        let js_fractions: Vec<JsFraction> = vec![lt, lte, eq, gte, gt]
+            .iter()
+            .map(|e| JsFraction::from_big_fraction(&e))
+            .collect();
+
+        serde_wasm_bindgen::to_value(&js_fractions).unwrap()
     }
 }
 
