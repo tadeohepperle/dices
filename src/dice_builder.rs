@@ -1,3 +1,5 @@
+use fraction::One;
+
 use super::{
     dice::Dice,
     dice_string_parser::{self, DiceBuildingError},
@@ -167,7 +169,7 @@ impl DiceBuilder {
         match self {
             DiceBuilder::Constant(v) => {
                 let mut m = DistributionHashMap::new();
-                m.insert(*v, Prob::new(1u64, 1u64));
+                m.insert(*v, Prob::one());
                 m
             }
             DiceBuilder::FairDie { min, max } => {

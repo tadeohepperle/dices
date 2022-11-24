@@ -87,9 +87,9 @@ pub use dice_builder::DiceBuilder;
 use wasm_bindgen::prelude::*;
 
 // wasm-pack build --release --features wasm --no-default-features
-//
 #[cfg(feature = "wasm")]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+/// just a test function for wasm pack
 pub fn greet() -> String {
     format!("Hello, from dices instantly")
 }
