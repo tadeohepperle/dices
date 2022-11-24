@@ -184,6 +184,12 @@ impl Dice {
 
     /// probability that a number sampled from `self` is less than or equal to `value`
     pub fn prob_lte(&self, value: Value) -> Prob {
+        if let Some((v, _)) = self.distribution.last() {
+            if value > *v {
+                return Prob::one();
+            }
+        }
+
         let mut lastp: Option<&Prob> = None;
         for (v, p) in self.cumulative_distribution.iter() {
             if *v > value {
@@ -199,6 +205,12 @@ impl Dice {
 
     /// probability that a number sampled from `self` is less than `value`
     pub fn prob_lt(&self, value: Value) -> Prob {
+        if let Some((v, _)) = self.distribution.last() {
+            if value >= *v {
+                return Prob::one();
+            }
+        }
+
         let mut lastp: Option<&Prob> = None;
         for (v, p) in self.cumulative_distribution.iter() {
             if *v >= value {
