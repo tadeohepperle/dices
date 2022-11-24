@@ -1,5 +1,13 @@
 A crate for calculating distrete probability distributions of dice.
 
+Build for wasm using:
+
+```
+wasm-pack build --target web --release --features wasm --no-default-features
+or
+wasm-pack build --release --features wasm --no-default-features
+```
+
 To create a [`Dice`], build it from a [`DiceBuilder`] or directly from a string:
 
 ```

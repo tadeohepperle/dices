@@ -47,8 +47,8 @@ pub struct Dice {
     pub mode: Vec<Value>,
     /// mean of the probability distribution
     pub mean: AggrValue,
-    /// standard deviation of the probability distribution
-    pub sd: AggrValue,
+    /// variance of the probability distribution
+    pub variance: AggrValue,
     /// the probability mass function (pmf) of the dice
     ///
     /// tuples of each value and its probability in ascending order (regarding value)
@@ -117,12 +117,12 @@ impl Dice {
             }
         }
 
-        let mut sd: AggrValue = AggrValue::from(0);
+        let mut variance: AggrValue = AggrValue::from(0);
         for (val, prob) in distribution.iter().cloned() {
             let val = AggrValue::from(val);
             let val_minus_mean = &val - &mean;
             let square = (&val_minus_mean) * (&val_minus_mean);
-            sd += square * prob
+            variance += square * prob
         }
 
         let median = median.unwrap();
@@ -133,7 +133,7 @@ impl Dice {
         let build_time: u64 = elapsed_millis(&start_instant);
         Dice {
             mean,
-            sd,
+            variance,
             mode,
             min,
             max,
@@ -283,8 +283,8 @@ impl JsDice {
     }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
-    pub fn sd(&self) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.sd)
+    pub fn variance(&self) -> JsFraction {
+        JsFraction::from_big_fraction(&self.dice.variance)
     }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
