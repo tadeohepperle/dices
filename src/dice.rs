@@ -221,6 +221,23 @@ impl Dice {
     pub fn prob_gt(&self, value: Value) -> Prob {
         return Prob::one() - self.prob_lte(value);
     }
+
+    /// returns prob_lt, prob_lte, prob, prob_gte, prob_gt in the [ProbAll] struct.
+    /// Computes them more efficiently than if we use all the functions individually.
+    pub fn prob_all(&self, value: Value) -> ProbAll {
+        let gt = self.prob_gt(value);
+        let eq = self.prob(value);
+        let gte = &eq + &gt;
+        let lte = &Prob::one() - &gt;
+        let lt = &lte + &eq;
+        ProbAll {
+            lt,
+            lte,
+            eq,
+            gte,
+            gt,
+        }
+    }
 }
 
 fn accumulated_distribution_from_distribution(
@@ -341,11 +358,13 @@ impl JsDice {
     /// returns \[prob_lt, prob_lte, prob, prob_gte, prob_gt\] as a vector.
     /// Computes them more efficiently than if we use all the functions individually.
     pub fn prob_all(&self, value: Value) -> wasm_bindgen::JsValue {
-        let gt = self.dice.prob_gt(value);
-        let eq = self.dice.prob(value);
-        let gte = &eq + &gt;
-        let lte = &Prob::one() - &gt;
-        let lt = &lte + &eq;
+        let ProbAll {
+            lt,
+            lte,
+            eq,
+            gte,
+            gt,
+        } = self.dice.prob_all(value);
 
         let js_fractions: Vec<JsFraction> = vec![lt, lte, eq, gte, gt]
             .iter()
@@ -415,3 +434,11 @@ impl JsFraction {
 }
 
 // https://rustwasm.github.io/wasm-bindgen/reference/arbitrary-data-with-serde.html
+
+pub struct ProbAll {
+    pub lt: Prob,
+    pub lte: Prob,
+    pub eq: Prob,
+    pub gte: Prob,
+    pub gt: Prob,
+}
