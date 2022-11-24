@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
 
-use fraction::{BigFraction, One, ToPrimitive, Zero};
+use fraction::{BigFraction, BigUint, One, Sign, ToPrimitive, Zero};
 use std::{fmt::Display, ops::Add};
 
 use crate::{
@@ -360,22 +360,37 @@ impl JsDistribution {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct JsFraction {
-    string: String,
+    pub numer: i64,
+    pub denom: i64,
+    pub negative: bool,
     pub float: f32,
 }
 
 #[cfg(feature = "wasm")]
 impl Display for JsFraction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.string)
+        write!(
+            f,
+            "{}{}/{}",
+            if self.negative { "-" } else { "+" },
+            self.numer,
+            self.denom
+        )
     }
 }
 
 #[cfg(feature = "wasm")]
 impl JsFraction {
     pub fn from_big_fraction(big_fraction: &BigFraction) -> JsFraction {
+        let numer = big_fraction.numer().unwrap().to_i64().unwrap();
+        let denom = big_fraction.denom().unwrap().to_i64().unwrap();
         JsFraction {
-            string: big_fraction.to_string(),
+            numer,
+            denom,
+            negative: match big_fraction.sign().unwrap() {
+                Sign::Plus => true,
+                Sign::Minus => false,
+            },
             float: big_fraction.to_f32().unwrap(),
         }
     }
