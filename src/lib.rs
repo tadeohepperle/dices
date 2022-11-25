@@ -96,7 +96,9 @@ pub fn greet() -> String {
 
 #[cfg(test)]
 mod tests {
-    use fraction::{ToPrimitive, Zero};
+    use std::str::FromStr;
+
+    use fraction::{BigFraction, ToPrimitive, Zero};
 
     use crate::{
         dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value},
@@ -243,5 +245,14 @@ mod tests {
 
         assert_eq!(d.prob_lt(-3), Prob::zero());
         assert_eq!(d.prob_lt(-3), Prob::zero());
+    }
+    #[test]
+    fn quantile_tests() {
+        let d = Dice::build_from_string("2d6").unwrap();
+        assert_eq!(d.quantile(1.0), 12);
+        assert_eq!(d.quantile(0.0), 2);
+        assert_eq!(d.quantile(0.5), 7);
+        assert_eq!(d.quantile(Prob::from_str("1/2").unwrap()), 7);
+        assert_eq!(d.quantile(Prob::from_str("-1/8").unwrap()), 2);
     }
 }

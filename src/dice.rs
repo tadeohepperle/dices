@@ -129,7 +129,7 @@ impl Dice {
         let mode = mode.unwrap().0;
 
         // TODO: MAYBE: make cumulative_distribution lazy?
-        let cumulative_distribution = accumulated_distribution_from_distribution(&distribution);
+        let cumulative_distribution = cumulative_distribution_from_distribution(&distribution);
 
         let build_time: u64 = elapsed_millis(&start_instant);
         Dice {
@@ -250,11 +250,41 @@ impl Dice {
             gt,
         }
     }
+
+    /// returns the smallest p-quantile of the distribution.
+    /// The smallest p-quantile q is the smallest value in the distribution for which it holds, that P(x ≤ q) ≥ p
+    /// currently the trait [ToFloat] is implementen for [BigFraction] and [f64]
+    pub fn quantile<T: ToFloat>(&self, p: T) -> Value {
+        let p: f64 = p.to_float();
+        if p >= 1.0 {
+            return self.cumulative_distribution.last().unwrap().0;
+        }
+        for (i, prob) in &self.cumulative_distribution {
+            if prob.to_float() >= p {
+                return *i;
+            }
+        }
+        panic!("should never end up here if a proper cumulative distribution is present")
+    }
 }
 
-fn accumulated_distribution_from_distribution(
-    distribution: &[(Value, Prob)],
-) -> Vec<(Value, Prob)> {
+pub trait ToFloat {
+    fn to_float(&self) -> f64;
+}
+
+impl ToFloat for f64 {
+    fn to_float(&self) -> f64 {
+        *self
+    }
+}
+
+impl ToFloat for Prob {
+    fn to_float(&self) -> f64 {
+        self.to_f64().unwrap()
+    }
+}
+
+fn cumulative_distribution_from_distribution(distribution: &[(Value, Prob)]) -> Vec<(Value, Prob)> {
     let mut acc_distr: Vec<(Value, Prob)> = vec![];
     let mut last_acc_prob: Option<Prob> = None;
     for (val, prob) in distribution {
@@ -388,6 +418,13 @@ impl JsDice {
             .collect();
 
         serde_wasm_bindgen::to_value(&js_fractions).unwrap()
+    }
+
+    /// returns the smallest p-quantile of the distribution.
+    /// The smallest p-quantile q is the smallest value in the distribution for which it holds, that P(x ≤ q) ≥ p
+    /// currently the trait [ToFloat] is implementen for [BigFraction] and [f64]
+    pub fn quantile(&self, p: f64) -> Value {
+        self.dice.quantile(p)
     }
 }
 
