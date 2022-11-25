@@ -118,6 +118,8 @@ impl DiceBuilder {
     /// this method calculates the distribution and all distribution paramters on the fly, to create the [`Dice`].
     /// Depending on the complexity of the `dice_builder` heavy lifting like convoluting probability distributions may take place here.
     pub fn build(self) -> Dice {
+        #[cfg(feature = "console_error_panic_hook")]
+        console_error_panic_hook::set_once();
         Dice::from_builder(self)
     }
 

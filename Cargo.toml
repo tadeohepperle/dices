@@ -17,6 +17,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["nowasm"]
 wasm = ["dep:wasm-bindgen","dep:serde-wasm-bindgen","dep:serde", "dep:web-sys"]
 nowasm =["dep:rand"]
+console_error_panic_hook = ["dep:console_error_panic_hook"]
 
 [dependencies]
 fraction = "0.11.1"
@@ -27,7 +28,7 @@ wasm-bindgen = {version = "0.2.63", optional = true, features = ["serde-serializ
 serde = { version = "1.0", features = ["derive"], optional = true}
 serde-wasm-bindgen = {version = "0.4", optional = true}
 rand = {version = "0.8.5", optional=true}
-
+console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -42,3 +43,5 @@ opt-level = 3
 
 [profile.release]
 opt-level = 3
+debug = true
+

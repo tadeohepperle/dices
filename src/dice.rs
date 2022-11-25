@@ -308,13 +308,13 @@ impl JsDice {
     }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
-    pub fn mean(&self) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.mean)
+    pub fn mean(&self) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.mean)).unwrap()
     }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
-    pub fn variance(&self) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.variance)
+    pub fn variance(&self) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.variance)).unwrap()
     }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter))]
@@ -348,23 +348,27 @@ impl JsDice {
     }
 
     /// probability that a number sampled from `self` is less than `value`
-    pub fn prob_lt(&self, value: Value) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.prob_lt(value))
+    pub fn prob_lt(&self, value: Value) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.prob_lt(value)))
+            .unwrap()
     }
 
     /// probability that a number sampled from `self` is less or equal than `value`
-    pub fn prob_lte(&self, value: Value) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.prob_lte(value))
+    pub fn prob_lte(&self, value: Value) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.prob_lte(value)))
+            .unwrap()
     }
 
     /// probability that a number sampled from `self` is greater than or equal to `value`
-    pub fn prob_gte(&self, value: Value) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.prob_gte(value))
+    pub fn prob_gte(&self, value: Value) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.prob_gte(value)))
+            .unwrap()
     }
 
     /// probability that a number sampled from `self` is greater than `value`
-    pub fn prob_gt(&self, value: Value) -> JsFraction {
-        JsFraction::from_big_fraction(&self.dice.prob_gt(value))
+    pub fn prob_gt(&self, value: Value) -> wasm_bindgen::JsValue {
+        serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.prob_gt(value)))
+            .unwrap()
     }
 
     /// returns \[prob_lt, prob_lte, prob, prob_gte, prob_gt\] as a vector.
@@ -388,7 +392,7 @@ impl JsDice {
 }
 
 #[cfg(feature = "wasm")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsDistribution {
     pub values: Vec<(Value, JsFraction)>,
 }
@@ -406,40 +410,27 @@ impl JsDistribution {
 }
 
 #[cfg(feature = "wasm")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsFraction {
-    pub numer: i64,
-    pub denom: i64,
-    pub negative: bool,
+    // pub numer: Vec<u64>,
+    // pub denom: Vec<u64>,
+    // pub negative: bool,
+    pub string: String,
     pub float: f32,
 }
 
 #[cfg(feature = "wasm")]
 impl Display for JsFraction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}/{}",
-            if self.negative { "-" } else { "+" },
-            self.numer,
-            self.denom
-        )
+        write!(f, "{} ({})", self.string, self.float,)
     }
 }
 
 #[cfg(feature = "wasm")]
 impl JsFraction {
     pub fn from_big_fraction(big_fraction: &BigFraction) -> JsFraction {
-        let numer = big_fraction.numer().unwrap().to_i64().unwrap();
-        let denom = big_fraction.denom().unwrap().to_i64().unwrap();
         JsFraction {
-            numer,
-            denom,
-            negative: match big_fraction.sign().unwrap() {
-                Sign::Plus => false,
-                Sign::Minus => true,
-            },
+            string: big_fraction.to_string(),
             float: big_fraction.to_f32().unwrap(),
         }
     }

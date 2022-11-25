@@ -96,7 +96,7 @@ pub fn greet() -> String {
 
 #[cfg(test)]
 mod tests {
-    use fraction::ToPrimitive;
+    use fraction::{ToPrimitive, Zero};
 
     use crate::{
         dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value},
@@ -240,5 +240,8 @@ mod tests {
         assert_eq!(d.prob_gt(7), Prob::new(15u64, 36u64));
         assert_eq!(d.prob_lte(7), Prob::new(21u64, 36u64));
         assert_eq!(d.prob_gte(7), Prob::new(21u64, 36u64));
+
+        assert_eq!(d.prob_lt(-3), Prob::zero());
+        assert_eq!(d.prob_lt(-3), Prob::zero());
     }
 }

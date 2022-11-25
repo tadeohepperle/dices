@@ -1,18 +1,41 @@
 A crate for calculating distrete probability distributions of dice.
 
-Build for wasm using:
+## Build for WASM
+
+#### If you don't use a web bundler:
 
 ```
 wasm-pack build --target web --release --features wasm --no-default-features
-or
-wasm-pack build --release --features wasm --no-default-features
 ```
+
+#### For bundler (default):
+
+```
+wasm-pack build --release --no-default-features --features wasm
+```
+
+#### With better error messages:
+
+```
+wasm-pack build --release --no-default-features --features wasm --features console_error_panic_hook
+```
+
+needs to have this in Cargo.toml:
+
+```
+[profile.release]
+debug = true
+```
+
+## Create and use Dice
 
 To create a [`Dice`], build it from a [`DiceBuilder`] or directly from a string:
 
 ```
+
 let dice: Dice = DiceBuilder::from_string("2d6").unwrap().build()
 let dice: Dice = Dice::build_from_string("2d6").unwrap()
+
 ```
 
 ---
@@ -20,6 +43,7 @@ let dice: Dice = Dice::build_from_string("2d6").unwrap()
 Properties of these dice are calculated in the `build()` function:
 
 ```
+
 min: 2
 max: 12
 mode: vec![7],
@@ -27,6 +51,7 @@ mean: 7,
 median: 7,
 distribution: vec![(2, 1/36), (3, 1/18), (4, 1/12), (5, 1/9), (5, 1/9), (6, 5/36), (7, 1/6), ...]
 cumulative_distribution: vec![(2, 1/36), (3, 1/12), (4, 1/6), ...]
+
 ```
 
 A DiceBuildingError could be returned, if the `input` string could not be parsed into a proper syntax tree for the [`DiceBuilder`].
@@ -36,15 +61,19 @@ A DiceBuildingError could be returned, if the `input` string could not be parsed
 To roll a [`Dice`] call the `roll()` function:
 
 ```
+
 let num = dice.roll();
 // num will be some i64 between 2 and 12, sampled according to the dices distribution
+
 ```
 
 For rolling multiple times call the `roll_multiple()` function:
 
 ```
+
 let nums = dice.roll_multiple(10);
 // nums could be vec![7,3,9,11,7,8,5,6,3,6]
+
 ```
 
 ---
