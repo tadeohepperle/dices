@@ -334,12 +334,12 @@ impl JsDice {
         self.dice.build_time
     }
 
-    pub fn build_from_string(input: &str) -> Result<JsDice, i64> {
+    pub fn build_from_string(input: &str) -> Result<JsDice, String> {
         match DiceBuilder::from_string(input) {
             Ok(builder) => Ok(JsDice {
                 dice: builder.build(),
             }),
-            Err(_) => Err(0),
+            Err(err) => Err(format!("{:?}", err)),
         }
     }
 

@@ -29,13 +29,13 @@ impl InputSymbol {
 }
 
 pub fn string_to_factor(input: &str) -> Result<DiceBuilder, DiceBuildingError> {
-    let symbols = string_to_input_symbols(input);
+    let symbols = string_to_input_symbols(input)?;
     let graph_seq = input_symbols_to_graph_seq(&symbols)?;
     let factor = graph_seq_to_factor(graph_seq);
     Ok(factor)
 }
 
-fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
+fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuildingError> {
     let mut input = input.to_owned();
     string_utils::clean_string(&mut input);
     let mut symbols: Vec<InputSymbol> = vec![];
@@ -80,7 +80,13 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
                     }
                 }
                 let max: String = num_char_vec.into_iter().collect();
-                let max: i64 = max.parse().unwrap();
+                let max: i64 = match max.parse() {
+                    Ok(i) => i,
+                    Err(_) => {
+                        return Err(DiceBuildingError::NonDigitSymbolAfterDiceD);
+                    }
+                };
+
                 symbols.push(InputSymbol::FairDie { min: 1, max });
             }
             '-' => {
@@ -103,13 +109,18 @@ fn string_to_input_symbols(input: &str) -> Vec<InputSymbol> {
                     }
                 }
                 let n: String = num_char_vec.into_iter().collect();
-                let n: i64 = n.parse().unwrap();
+                let n: i64 = match n.parse() {
+                    Ok(i) => i,
+                    Err(_) => {
+                        return Err(DiceBuildingError::NonDigitNumericCharacter);
+                    }
+                };
                 symbols.push(InputSymbol::Constant(n));
             }
         }
     }
 
-    symbols
+    Ok(symbols)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -133,6 +144,9 @@ pub enum DiceBuildingError {
     MoreThan2ElementsUsedForSampleSum,
     UnknownSyntaxError(Vec<InputSymbol>),
     OneInputSymbolButNotAtomic(InputSymbol),
+    NonDigitSymbolAfterDiceD,
+    NonDigitNumericCharacter,
+    SampleSumConvolutionError(String),
 }
 
 fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, DiceBuildingError> {
@@ -307,11 +321,6 @@ fn partition_input_symbols_bracket_aware(
 mod string_utils {
     use regex::Regex;
     const PERMITTED_CHARACTERS: &str = "minax(,)dw0123456789+-*";
-    // pub fn remove_from_string(input: &str, remove: &str) -> String {
-    //     let re = Regex::new(remove).unwrap();
-    //     return re.replace_all(input, "").to_string();
-    // }
-
     pub fn clean_string(s: &mut String) {
         *s = s.to_lowercase();
         s.retain(|c| PERMITTED_CHARACTERS.chars().into_iter().any(|c2| c == c2));
@@ -338,7 +347,7 @@ mod test {
     }
     #[test]
     fn string_to_input_symbols_1() {
-        let real: Vec<InputSymbol> = string_to_input_symbols("max(13,2)");
+        let real: Vec<InputSymbol> = string_to_input_symbols("max(13,2)").unwrap();
         let expected: Vec<InputSymbol> = vec![
             InputSymbol::MaxOpening,
             InputSymbol::Constant(13),
@@ -350,7 +359,7 @@ mod test {
     }
     #[test]
     fn string_to_input_symbols_2() {
-        let real: Vec<InputSymbol> = string_to_input_symbols("4 d32 - 3");
+        let real: Vec<InputSymbol> = string_to_input_symbols("4 d32 - 3").unwrap();
         let expected: Vec<InputSymbol> = vec![
             InputSymbol::Constant(4),
             InputSymbol::SampleSum,
@@ -412,7 +421,7 @@ mod test {
         /// see if graph in constructed correctly
         fn input_symbols_to_graph_seq_test() {
             let input = "max(1,2,3)";
-            let symbols = string_to_input_symbols(input);
+            let symbols = string_to_input_symbols(input).unwrap();
             assert_eq!(
                 symbols,
                 vec![

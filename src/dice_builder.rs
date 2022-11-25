@@ -247,10 +247,13 @@ fn convolute_two_hashmaps(
             // println!("loop2 v2:{} p2:{}", v2, p2);
             let v = operation(*v1, *v2);
             let p = p1 * p2;
-            if let std::collections::hash_map::Entry::Vacant(e) = m.entry(v) {
-                e.insert(p);
-            } else {
-                *m.get_mut(&v).unwrap() += p;
+            match m.entry(v) {
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    *e.get_mut() += p;
+                }
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(p);
+                }
             }
         }
     }
@@ -281,7 +284,12 @@ fn sample_sum_convolute_two_hashmaps(
     for (count, count_p) in count_factor.iter() {
         let mut count_hashmap: DistributionHashMap = match count.cmp(&0) {
             std::cmp::Ordering::Less => {
-                panic!("cannot use count_factor {}", count);
+                let count: usize = (-count) as usize;
+                let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(&sample_factor)
+                    .take(count)
+                    .cloned()
+                    .collect();
+                convolute_hashmaps(&sample_vec, |a, b| a + b)
             }
             std::cmp::Ordering::Equal => {
                 let mut h = DistributionHashMap::new();
@@ -323,10 +331,13 @@ impl Add for Box<DiceBuilder> {
 
 pub fn merge_hashmaps(first: &mut DistributionHashMap, second: &DistributionHashMap) {
     for (k, v) in second.iter() {
-        if first.contains_key(k) {
-            *first.get_mut(k).unwrap() += v;
-        } else {
-            first.insert(*k, v.clone());
+        match first.get_mut(k) {
+            Some(e) => {
+                *e += v;
+            }
+            None => {
+                first.insert(*k, v.clone());
+            }
         }
     }
 }
