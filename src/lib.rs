@@ -25,7 +25,7 @@
 //! use dices::Dice;
 //! let dice = Dice::build_from_string("2d6").unwrap();
 //! let num = dice.roll();
-//! let nums = dice.roll_multiple(10);
+//! let nums = dice.roll_many(10);
 //! // num will be some i64 between 2 and 12, sampled according to the dices distribution
 //! // nums could be vec![7,3,9,11,7,8,5,6,3,6]
 //! ```

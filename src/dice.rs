@@ -170,8 +170,8 @@ impl Dice {
     }
 
     /// rolls the [`Dice`] `n` times and returns the results as a vector
-    pub fn roll_multiple(&self, n: usize) -> Vec<Value> {
-        (1..n).map(|_| self.roll()).collect()
+    pub fn roll_many(&self, n: usize) -> Vec<Value> {
+        (0..n).map(|_| self.roll()).collect()
     }
 
     /// probability that a number sampled from `self` is `value`
@@ -377,6 +377,9 @@ impl JsDice {
         self.dice.roll()
     }
 
+    pub fn roll_many(&self, n: usize) -> Vec<Value> {
+        self.dice.roll_many(n)
+    }
     /// probability that a number sampled from `self` is less than `value`
     pub fn prob_lt(&self, value: Value) -> wasm_bindgen::JsValue {
         serde_wasm_bindgen::to_value(&JsFraction::from_big_fraction(&self.dice.prob_lt(value)))

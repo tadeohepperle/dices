@@ -10,7 +10,7 @@ fn main() {
         Err(e) => println!("err: {:?}", e),
     }
     // println!("time to construct: {:?}", d.build_time);
-    // // let v = d.roll_multiple(10);
+    // // let v = d.roll_many(10);
     // // println!("rolled: {:?}", v);
     // for (i, g) in d.distribution {
     //     println!("i: {:?} , g: {:?}", i, g.numer().unwrap().to_i64().unwrap());

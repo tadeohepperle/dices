@@ -1,12 +1,6 @@
-A crate for calculating distrete probability distributions of dice.
+A crate for calculating discrete probability distributions of dice.
 
 ## Build for WASM
-
-#### If you don't use a web bundler:
-
-```
-wasm-pack build --target web --release --features wasm --no-default-features
-```
 
 #### For bundler (default):
 
@@ -25,6 +19,12 @@ needs to have this in Cargo.toml:
 ```
 [profile.release]
 debug = true
+```
+
+#### If you don't use a web bundler:
+
+```
+wasm-pack build --target web --release --features wasm --no-default-features
 ```
 
 ## Create and use Dice
@@ -67,11 +67,11 @@ let num = dice.roll();
 
 ```
 
-For rolling multiple times call the `roll_multiple()` function:
+For rolling multiple times call the `roll_many()` function:
 
 ```
 
-let nums = dice.roll_multiple(10);
+let nums = dice.roll_many(10);
 // nums could be vec![7,3,9,11,7,8,5,6,3,6]
 
 ```
