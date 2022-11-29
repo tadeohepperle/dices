@@ -185,7 +185,7 @@ impl Dice {
     /// probability that a number sampled from `self` is less than or equal to `value`
     pub fn prob_lte(&self, value: Value) -> Prob {
         if let Some((v, _)) = self.distribution.last() {
-            if value > *v {
+            if value >= *v {
                 return Prob::one();
             }
         }
@@ -206,7 +206,7 @@ impl Dice {
     /// probability that a number sampled from `self` is less than `value`
     pub fn prob_lt(&self, value: Value) -> Prob {
         if let Some((v, _)) = self.distribution.last() {
-            if value >= *v {
+            if value > *v {
                 return Prob::one();
             }
         }
@@ -237,11 +237,11 @@ impl Dice {
     /// returns prob_lt, prob_lte, prob, prob_gte, prob_gt in the [ProbAll] struct.
     /// Computes them more efficiently than if we use all the functions individually.
     pub fn prob_all(&self, value: Value) -> ProbAll {
-        let gt = self.prob_gt(value);
+        let lt = self.prob_lt(value);
         let eq = self.prob(value);
-        let gte = &eq + &gt;
-        let lte = &Prob::one() - &gt;
-        let lt = &lte + &eq;
+        let lte = &eq + &lt;
+        let gte = &Prob::one() - &lt;
+        let gt = &Prob::one() - &lte;
         ProbAll {
             lt,
             lte,
