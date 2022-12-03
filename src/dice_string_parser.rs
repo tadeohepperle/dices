@@ -122,6 +122,25 @@ fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuilding
         }
     }
 
+    // purge empty add symbols, that is all add symbols that are not behind a closing, fairdie or constant
+    // example: + "-1" * "d3" => "-1" * "d3"
+    symbols = symbols
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| {
+            !(**e == InputSymbol::Add
+                && (*i == 0
+                    || match symbols[i - 1] {
+                        InputSymbol::Constant(_) => false,
+                        InputSymbol::FairDie { .. } => false,
+                        InputSymbol::Closing => false,
+                        _ => true,
+                    }))
+        })
+        .map(|(_, e)| e)
+        .cloned()
+        .collect();
+
     Ok(symbols)
 }
 
@@ -151,7 +170,7 @@ pub enum DiceBuildingError {
     SampleSumConvolutionError(String),
 }
 
-fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, DiceBuildingError> {
+fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceBuildingError> {
     if symbols.len() == 1 {
         let sym = symbols[0];
         match sym {
@@ -162,57 +181,63 @@ fn input_symbols_to_graph_seq(symbols: &Vec<InputSymbol>) -> Result<GraphSeq, Di
             e => return Err(DiceBuildingError::OneInputSymbolButNotAtomic(e)),
         }
     }
-    let is_pure_bracket_compound = symbols_indicate_pure_bracket_compund(symbols);
-    if is_pure_bracket_compound {
-        let reduced_vec = vec_without_last_and_first(symbols);
-        return input_symbols_to_graph_seq(&reduced_vec);
-    }
-    let is_max_compound = symbols_indicate_max_compound(symbols);
+    // 3+(3d4+4)*10
 
-    let is_min_compound = symbols_indicate_min_compound(symbols);
-    if is_max_compound || is_min_compound {
-        let reduced_vec = vec_without_last_and_first(symbols);
-        let parts = partition_input_symbols_bracket_aware(&reduced_vec, InputSymbol::Comma);
-        let mut sub_sequences: Vec<GraphSeq> = vec![];
-        for p in parts {
-            let graph_seq_for_p = input_symbols_to_graph_seq(&p)?;
-            sub_sequences.push(graph_seq_for_p);
-        }
-        if is_max_compound {
-            return Ok(GraphSeq::Max(sub_sequences));
-        }
-        if is_min_compound {
-            return Ok(GraphSeq::Min(sub_sequences));
-        }
-        panic!("should never get here");
-    }
+    // we have +, * and x somewhere
 
-    let add_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Add);
-    if add_partitioning.len() >= 2 {
-        let sub_sequences = input_symbol_partitioning_to_sub_sequnces(add_partitioning)?;
-        return Ok(GraphSeq::Add(sub_sequences));
-    }
-    let mul_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Multiply);
-    if mul_partitioning.len() >= 2 {
-        let sub_sequences = input_symbol_partitioning_to_sub_sequnces(mul_partitioning)?;
-        return Ok(GraphSeq::Mul(sub_sequences));
-    }
-    let sample_sum_partitioning =
-        partition_input_symbols_bracket_aware(symbols, InputSymbol::SampleSum);
+    // let is_pure_bracket_compound = symbols_indicate_pure_bracket_compund(symbols);
+    // if is_pure_bracket_compound {
+    //     let reduced_vec = vec_without_last_and_first(symbols);
+    //     return input_symbols_to_graph_seq(&reduced_vec);
+    // }
+    // let is_max_compound = symbols_indicate_max_compound(symbols);
 
-    if sample_sum_partitioning.len() >= 2 {
-        if sample_sum_partitioning.len() > 2 {
-            return Err(DiceBuildingError::MoreThan2ElementsUsedForSampleSum);
-        }
-        let count_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[0])?;
-        let sample_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[1])?;
-        return Ok(GraphSeq::SampleSum(
-            Box::new(count_seq),
-            Box::new(sample_seq),
-        ));
-    }
-    println!("{:?}", symbols);
-    Err(DiceBuildingError::UnknownSyntaxError(symbols.clone()))
+    // let is_min_compound = symbols_indicate_min_compound(symbols);
+    // if is_max_compound || is_min_compound {
+    //     let reduced_vec = vec_without_last_and_first(symbols);
+    //     let parts = partition_input_symbols_bracket_aware(&reduced_vec, InputSymbol::Comma);
+    //     let mut sub_sequences: Vec<GraphSeq> = vec![];
+    //     for p in parts {
+    //         let graph_seq_for_p = input_symbols_to_graph_seq(&p)?;
+    //         sub_sequences.push(graph_seq_for_p);
+    //     }
+    //     if is_max_compound {
+    //         return Ok(GraphSeq::Max(sub_sequences));
+    //     }
+    //     if is_min_compound {
+    //         return Ok(GraphSeq::Min(sub_sequences));
+    //     }
+    //     panic!("should never get here");
+    // }
+
+    // let add_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Add);
+    // if add_partitioning.len() >= 2 {
+    //     let sub_sequences = input_symbol_partitioning_to_sub_sequnces(add_partitioning)?;
+    //     return Ok(GraphSeq::Add(sub_sequences));
+    // }
+    // let mul_partitioning = partition_input_symbols_bracket_aware(symbols, InputSymbol::Multiply);
+    // if mul_partitioning.len() >= 2 {
+    //     let sub_sequences = input_symbol_partitioning_to_sub_sequnces(mul_partitioning)?;
+    //     return Ok(GraphSeq::Mul(sub_sequences));
+    // }
+    // let sample_sum_partitioning =
+    //     partition_input_symbols_bracket_aware(symbols, InputSymbol::SampleSum);
+
+    // if sample_sum_partitioning.len() >= 2 {
+    //     if sample_sum_partitioning.len() > 2 {
+    //         return Err(DiceBuildingError::MoreThan2ElementsUsedForSampleSum);
+    //     }
+    //     let count_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[0])?;
+    //     let sample_seq = input_symbols_to_graph_seq(&sample_sum_partitioning[1])?;
+    //     return Ok(GraphSeq::SampleSum(
+    //         Box::new(count_seq),
+    //         Box::new(sample_seq),
+    //     ));
+    // }
+    // println!("{:?}", symbols);
+    Err(DiceBuildingError::UnknownSyntaxError(
+        symbols.clone().to_vec(),
+    ))
 }
 
 fn input_symbol_partitioning_to_sub_sequnces(
