@@ -1,5 +1,7 @@
 use std::vec;
 
+use regex::Regex;
+
 use super::dice_builder::{DiceBuilder, Value};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -327,9 +329,41 @@ mod string_utils {
         *s = s.replace("max(", "M");
         *s = s.replace("min(", "m");
         *s = s.replace('w', "d");
-        let re_dice_with_factor = Regex::new(r"(\d)d").unwrap();
-        *s = re_dice_with_factor.replace_all(s, "$1/d").to_string();
-        *s = s.replace('/', "x");
+
+        // 3d6 => 3xd6
+        add_token_in_string(s, "", r"\d", "d", "", "x");
+
+        // )( => )x(
+        add_token_in_string(s, r"\)", "", r"\(", "x", "");
+
+        // )M => )xM
+        add_token_in_string(s, r"\)", "", "M", "x", "");
+
+        // )m => )xm
+        add_token_in_string(s, r"\)", "", "m", "x", "");
+
+        // 3(...) => 3x(...),   d3(d3) => d3x(d3)
+        add_token_in_string(s, r"", r"(\d|d)", r"\(", "", "x");
+    }
+
+    fn add_token_in_string(
+        string: &mut String,
+        before: &str,
+        search_token: &str,
+        after: &str,
+        put_before_search_token: &str,
+        put_after_search_token: &str,
+    ) {
+        let re = Regex::new(&format!("{}({}){}", before, search_token, after)).unwrap();
+        dbg!(&re);
+        *string = re
+            .replace_all(string, &format!("{}□$1■{}", before, after))
+            .to_string();
+        dbg!(&string);
+        *string = string
+            .replace('□', put_before_search_token)
+            .replace('■', put_after_search_token)
+            .replace("\\", "");
     }
 }
 
@@ -341,9 +375,11 @@ mod test {
 
     #[test]
     fn clean_string_test() {
-        let mut input = r#" max(3w6)        "#.to_owned();
+        let mut input = r#" max(3w6)(3+4)+d3(d3)-3()  min(3,4)       "#.to_owned();
+
         string_utils::clean_string(&mut input);
-        assert_eq!("M3xd6)", input);
+        dbg!(&input);
+        assert_eq!("M3xd6)x(3+4)+d3x(d3)-3x()xm3,4)", input);
     }
     #[test]
     fn string_to_input_symbols_1() {
