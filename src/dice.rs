@@ -4,8 +4,14 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
 
-use fraction::{BigFraction, BigUint, One, Sign, ToPrimitive, Zero};
-use std::{fmt::Display, ops::Add};
+#[cfg(feature = "wasm")]
+use fraction::{BigFraction, BigUint, Sign};
+
+#[cfg(feature = "wasm")]
+use std::fmt::Display;
+
+use fraction::{One, ToPrimitive, Zero};
+use std::ops::Add;
 
 use crate::{
     dice_string_parser::DiceBuildingError,

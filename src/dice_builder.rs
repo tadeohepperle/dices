@@ -47,16 +47,17 @@ pub enum DiceBuilder {
     MaxCompound(Vec<DiceBuilder>),
     /// the minimum of multiple [DiceBuilder] instances, like: min(d6,3,d20)
     MinCompound(Vec<DiceBuilder>),
-    /// SampleSumCompound(a,b) can be interpreted as follows:
+    /// SampleSumCompound(vec![a,b]) can be interpreted as follows:
     /// A [`DiceBuilder`] `b` is sampled `a` times independently of each other.
+    /// It is represented by an x in input strings, e.g. "a x b"
+    /// The operator is left-associative, so a x b x c is (a x b) x c.
     ///
     /// # Examples
     /// throwing 5 six-sided dice:
     /// ```
     /// use dices::DiceBuilder::*;
     /// let five_six_sided_dice = SampleSumCompound(
-    ///     Box::new(Constant(5)),
-    ///     Box::new(FairDie{min: 1, max: 6})
+    ///     vec![Constant(5),FairDie{min: 1, max: 6}]
     /// );
     /// ```
     ///
@@ -64,23 +65,19 @@ pub enum DiceBuilder {
     /// ```
     /// use dices::DiceBuilder::*;
     /// let dice_1_2_or_3 = SampleSumCompound(
-    ///     Box::new(FairDie{min: 1, max: 3}),
-    ///     Box::new(FairDie{min: 1, max: 6})
+    ///     vec![FairDie{min: 1, max: 3},FairDie{min: 1, max: 6}]
     /// );
     /// ```
     ///
     /// for two constants, it is the same as multiplication:
     /// ```
     /// use dices::DiceBuilder::*;
-    /// let b1 = SampleSumCompound(
-    ///     Box::new(Constant(2)),
-    ///     Box::new(Constant(3))
-    /// );
+    /// let b1 = SampleSumCompound(vec![Constant(2),Constant(3)]);
     /// let b2 = ProductCompound(vec![Constant(2),Constant(3)]);
     /// assert_eq!(b1.build().distribution, b2.build().distribution);
     ///
     /// ```
-    SampleSumCompound(Box<DiceBuilder>, Box<DiceBuilder>),
+    SampleSumCompound(Vec<DiceBuilder>),
 }
 
 impl DiceBuilder {
@@ -149,6 +146,11 @@ impl DiceBuilder {
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
                 .join("*"),
+            DiceBuilder::SampleSumCompound(v) => v
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join("x"),
             DiceBuilder::MaxCompound(v) => format!(
                 "max({})",
                 v.iter()
@@ -163,7 +165,6 @@ impl DiceBuilder {
                     .collect::<Vec<String>>()
                     .join(",")
             ),
-            DiceBuilder::SampleSumCompound(a, b) => format!("{}x{}", a.to_string(), b.to_string()),
         }
     }
 
@@ -185,39 +186,30 @@ impl DiceBuilder {
                 }
                 m
             }
-
-            DiceBuilder::SumCompound(vec) => {
+            DiceBuilder::SampleSumCompound(vec) => {
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                convolute_hashmaps(&hashmaps, |a, b| a + b)
+                sample_sum_convolute_hashmaps(&hashmaps)
             }
-            DiceBuilder::ProductCompound(vec) => {
+            DiceBuilder::SumCompound(vec)
+            | DiceBuilder::ProductCompound(vec)
+            | DiceBuilder::MaxCompound(vec)
+            | DiceBuilder::MinCompound(vec) => {
+                let operation = match self {
+                    DiceBuilder::SumCompound(_) => |a, b| a + b,
+                    DiceBuilder::ProductCompound(_) => |a, b| a * b,
+                    DiceBuilder::MaxCompound(_) => std::cmp::max,
+                    DiceBuilder::MinCompound(_) => std::cmp::min,
+                    _ => panic!("unreachable by match"),
+                };
                 let hashmaps = vec
                     .iter()
                     .map(|e| e.distribution_hashmap())
                     .collect::<Vec<DistributionHashMap>>();
-                convolute_hashmaps(&hashmaps, |a, b| a * b)
+                convolute_hashmaps(&hashmaps, operation)
             }
-            DiceBuilder::MaxCompound(vec) => {
-                let hashmaps = vec
-                    .iter()
-                    .map(|e| e.distribution_hashmap())
-                    .collect::<Vec<DistributionHashMap>>();
-                convolute_hashmaps(&hashmaps, std::cmp::max)
-            }
-            DiceBuilder::MinCompound(vec) => {
-                let hashmaps = vec
-                    .iter()
-                    .map(|e| e.distribution_hashmap())
-                    .collect::<Vec<DistributionHashMap>>();
-                convolute_hashmaps(&hashmaps, std::cmp::min)
-            }
-            DiceBuilder::SampleSumCompound(f1, f2) => sample_sum_convolute_two_hashmaps(
-                f1.distribution_hashmap(),
-                f2.distribution_hashmap(),
-            ),
         }
     }
 
@@ -235,16 +227,28 @@ impl DiceBuilder {
     }
 }
 
+fn convolute_hashmaps(
+    hashmaps: &Vec<DistributionHashMap>,
+    operation: fn(Value, Value) -> Value,
+) -> DistributionHashMap {
+    if hashmaps.len() == 0 {
+        panic!("cannot convolute hashmaps from a zero element vector");
+    }
+    let mut convoluted_h = hashmaps[0].clone();
+    for h in hashmaps.iter().skip(1) {
+        convoluted_h = convolute_two_hashmaps(&convoluted_h, h, operation);
+    }
+    convoluted_h
+}
+
 fn convolute_two_hashmaps(
-    h1: &HashMap<Value, Prob>,
-    h2: &HashMap<Value, Prob>,
+    h1: &DistributionHashMap,
+    h2: &DistributionHashMap,
     operation: fn(Value, Value) -> Value,
 ) -> DistributionHashMap {
     let mut m = DistributionHashMap::new();
     for (v1, p1) in h1.iter() {
-        // println!("loop1 v1:{} p1:{}", v1, p1);
         for (v2, p2) in h2.iter() {
-            // println!("loop2 v2:{} p2:{}", v2, p2);
             let v = operation(*v1, *v2);
             let p = p1 * p2;
             match m.entry(v) {
@@ -260,32 +264,27 @@ fn convolute_two_hashmaps(
     m
 }
 
-fn convolute_hashmaps(
-    hashmaps: &Vec<DistributionHashMap>,
-    operation: fn(Value, Value) -> Value,
-) -> DistributionHashMap {
-    // let mut m = HashMap::<Value, Prob>::new();
-    let len = hashmaps.len();
-    if len == 0 {
+fn sample_sum_convolute_hashmaps(hashmaps: &Vec<DistributionHashMap>) -> DistributionHashMap {
+    if hashmaps.len() == 0 {
         panic!("cannot convolute hashmaps from a zero element vector");
     }
     let mut convoluted_h = hashmaps[0].clone();
     for h in hashmaps.iter().skip(1) {
-        convoluted_h = convolute_two_hashmaps(&convoluted_h, h, operation);
+        convoluted_h = sample_sum_convolute_two_hashmaps(&convoluted_h, h);
     }
     convoluted_h
 }
 
 fn sample_sum_convolute_two_hashmaps(
-    count_factor: DistributionHashMap,
-    sample_factor: DistributionHashMap,
+    count_factor: &DistributionHashMap,
+    sample_factor: &DistributionHashMap,
 ) -> DistributionHashMap {
     let mut total_hashmap = DistributionHashMap::new();
     for (count, count_p) in count_factor.iter() {
         let mut count_hashmap: DistributionHashMap = match count.cmp(&0) {
             std::cmp::Ordering::Less => {
                 let count: usize = (-count) as usize;
-                let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(&sample_factor)
+                let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(sample_factor)
                     .take(count)
                     .cloned()
                     .collect();
@@ -298,7 +297,7 @@ fn sample_sum_convolute_two_hashmaps(
             }
             std::cmp::Ordering::Greater => {
                 let count: usize = *count as usize;
-                let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(&sample_factor)
+                let sample_vec: Vec<DistributionHashMap> = std::iter::repeat(sample_factor)
                     .take(count)
                     .cloned()
                     .collect();

@@ -98,7 +98,7 @@ pub fn greet() -> String {
 mod tests {
     use std::str::FromStr;
 
-    use fraction::{BigFraction, ToPrimitive, Zero};
+    use fraction::{ToPrimitive, Zero};
 
     use crate::{
         dice_builder::{DiceBuilder, DistributionHashMap, Prob, Value},
@@ -145,7 +145,7 @@ mod tests {
     fn sample_sum_convolute_1() {
         let f1 = DiceBuilder::Constant(2);
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
-        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let f = DiceBuilder::SampleSumCompound(vec![f1, f2]);
         let dice = f.build();
         let d = dice.distribution;
         assert_eq!(d, unif(vec![2, 3, 3, 4]));
@@ -155,7 +155,7 @@ mod tests {
     fn sample_sum_convolute_2() {
         let f1 = DiceBuilder::FairDie { min: 1, max: 2 };
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
-        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let f = DiceBuilder::SampleSumCompound(vec![f1, f2]);
         let dice = f.build();
         let d = dice.distribution;
         assert_eq!(d, unif(vec![1, 2, 1, 2, 2, 3, 3, 4]));
@@ -166,7 +166,7 @@ mod tests {
     fn sample_sum_convolute_3() {
         let f1 = DiceBuilder::FairDie { min: 0, max: 1 };
         let f2 = DiceBuilder::FairDie { min: 1, max: 2 };
-        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let f = DiceBuilder::SampleSumCompound(vec![f1, f2]);
         let dice = f.build();
         let d = dice.distribution;
         assert_eq!(d, unif(vec![0, 0, 1, 2]));
@@ -177,7 +177,7 @@ mod tests {
     fn sample_sum_convolute_4() {
         let f1 = DiceBuilder::Constant(0);
         let f2 = DiceBuilder::FairDie { min: 1, max: 6 };
-        let f = DiceBuilder::SampleSumCompound(Box::new(f1), Box::new(f2));
+        let f = DiceBuilder::SampleSumCompound(vec![f1, f2]);
         let dice = f.build();
         let d = dice.distribution;
         assert_eq!(d, unif(vec![0]));
