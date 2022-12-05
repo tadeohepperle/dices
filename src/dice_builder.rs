@@ -210,8 +210,27 @@ impl DiceBuilder {
                     DiceBuilder::ProductCompound(_) => |a, b| a * b,
                     DiceBuilder::MaxCompound(_) => std::cmp::max,
                     DiceBuilder::MinCompound(_) => std::cmp::min,
-                    DiceBuilder::DivisionCompound(_) => |a, b| (a + b - 1) / b,
+                    DiceBuilder::DivisionCompound(_) => {
+                        |a: i64, b: i64| rounded_div::i64(a, b)
 
+                        // match b.cmp(&0) {
+                        //     std::cmp::Ordering::Less => -(a / -b),
+                        //     std::cmp::Ordering::Equal => 0, // or should be infinity? Idk
+                        //     std::cmp::Ordering::Greater => a / b,
+                        // }
+                    }
+
+                    // {
+                    //     if a == 0 {
+                    //         0
+                    //     } else {
+                    //         match if a >= 0 { b.cmp(&0) } else { (-b).cmp(&0) } {
+                    //             std::cmp::Ordering::Less => -((a - b - 1) / -b),
+                    //             std::cmp::Ordering::Equal => 0,
+                    //             std::cmp::Ordering::Greater => (a + b - 1) / b,
+                    //         }
+                    //     }
+                    // },
                     _ => panic!("unreachable by match"),
                 };
                 let hashmaps = vec
