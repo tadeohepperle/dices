@@ -25,13 +25,13 @@ pub enum SeparatorInputSymbol {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ClosingInputSymbol {
-    BClosing,
+    CloseBracket,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum OpeningInputSymbol {
-    BOpening,
-    MaxOpening,
+    OpenBracket,
+    Max,
     MinOpening,
 }
 
@@ -77,10 +77,10 @@ fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuilding
         };
 
         match c {
-            'M' => symbols.push(Opening(MaxOpening)),
+            'M' => symbols.push(Opening(Max)),
             'm' => symbols.push(Opening(MinOpening)),
-            '(' => symbols.push(Opening(BOpening)),
-            ')' => symbols.push(Closing(BClosing)),
+            '(' => symbols.push(Opening(OpenBracket)),
+            ')' => symbols.push(Closing(CloseBracket)),
             ',' => symbols.push(Separator(Comma)),
             '*' => symbols.push(Operator(Mul)),
             'x' => symbols.push(Operator(SampleSum)),
@@ -153,11 +153,10 @@ fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuilding
             !(**e == InputSymbol::Operator(OperatorInputSymbol::Add)
                 && (*i == 0
                     || *i == symbols.len() - 1
-                    || match symbols[i - 1] {
-                        InputSymbol::Atomic(_) | InputSymbol::Closing(_) => false,
-
-                        _ => true,
-                    }))
+                    || !matches!(
+                        symbols[i - 1],
+                        InputSymbol::Atomic(_) | InputSymbol::Closing(_)
+                    )))
         })
         .map(|(_, e)| e)
         .cloned()
@@ -192,16 +191,16 @@ pub enum DiceBuildingError {
 
 fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceBuildingError> {
     match symbols.len() {
-        0 => return Err(DiceBuildingError::EmptySubSequence),
+        0 => Err(DiceBuildingError::EmptySubSequence),
         1 => {
             let sym = symbols[0];
-            return match sym {
+            match sym {
                 Atomic(a) => match a {
                     Constant(i) => Ok(GraphSeq::Atomic(DiceBuilder::Constant(i))),
                     FairDie { min, max } => Ok(GraphSeq::Atomic(DiceBuilder::FairDie { min, max })),
                 },
                 e => Err(DiceBuildingError::OneInputSymbolButNotAtomic(e)),
-            };
+            }
         }
         _ => {
             // precedence of operators (high -> low):  x -> * -> / -> +
@@ -230,12 +229,12 @@ fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceB
 
             let first = *symbols.first().unwrap();
             let last = *symbols.last().unwrap();
-            return match (first, last) {
+            match (first, last) {
                 (Opening(o), Closing(_)) => {
                     let symbols_no_first_and_last = &symbols[1..(symbols.len() - 1)];
                     match o {
-                        BOpening => Ok(input_symbols_to_graph_seq(symbols_no_first_and_last)?),
-                        MaxOpening => Ok(GraphSeq::Max(split_and_assemble(
+                        OpenBracket => Ok(input_symbols_to_graph_seq(symbols_no_first_and_last)?),
+                        Max => Ok(GraphSeq::Max(split_and_assemble(
                             symbols_no_first_and_last,
                             Separator(Comma),
                         )?)),
@@ -245,10 +244,8 @@ fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceB
                         )?)),
                     }
                 }
-                _ => Err(DiceBuildingError::UnknownSyntaxError(
-                    symbols.iter().cloned().collect(),
-                )),
-            };
+                _ => Err(DiceBuildingError::UnknownSyntaxError(symbols.to_vec())),
+            }
         }
     }
 }
@@ -259,15 +256,15 @@ fn global_scope_contains_operator(
     operator: OperatorInputSymbol,
 ) -> Result<bool, DiceBuildingError> {
     let mut scope_depth: usize = 0;
-    for i in 0..symbols.len() {
+    for symbol in symbols.iter() {
         if scope_depth == 0 {
-            if let InputSymbol::Operator(a) = symbols[i] {
+            if let InputSymbol::Operator(a) = *symbol {
                 if a == operator {
                     return Ok(true);
                 }
             }
         }
-        match symbols[i] {
+        match symbol {
             InputSymbol::Opening(_) => {
                 scope_depth += 1;
             }
@@ -280,23 +277,23 @@ fn global_scope_contains_operator(
             _ => (),
         }
     }
-    return Ok(false);
+
+    Ok(false)
 }
 
 fn split_and_assemble(
     symbols: &[InputSymbol],
     splitter: InputSymbol,
 ) -> Result<Vec<GraphSeq>, DiceBuildingError> {
-    let segments_or_errors: Vec<Result<_, _>> = symbols
+    let mut segments: Vec<GraphSeq> = vec![];
+    for segment in symbols
         .split_bracket_aware(splitter)?
         .iter()
         .map(|segment| input_symbols_to_graph_seq(segment))
-        .collect();
-    let mut segments: Vec<GraphSeq> = vec![];
-    for segment in segments_or_errors.into_iter() {
+    {
         segments.push(segment?);
     }
-    return Ok(segments);
+    Ok(segments)
 }
 
 trait BracketAwareSplittable {
@@ -340,16 +337,15 @@ impl BracketAwareSplittable for &[InputSymbol] {
             }
         }
         for e in index_chunks.iter() {
-            match e {
-                (None, None) => return Err(DiceBuildingError::MultipleOperatorsBehindEachOther),
-                _ => (),
+            if let (None, None) = e {
+                return Err(DiceBuildingError::MultipleOperatorsBehindEachOther);
             }
         }
         let res = index_chunks
             .iter()
             .map(|(s, e)| &self[s.unwrap()..=e.unwrap()])
             .collect();
-        return Ok(res);
+        Ok(res)
     }
 }
 
@@ -445,7 +441,7 @@ mod string_utils {
         *string = string
             .replace('□', put_before_search_token)
             .replace('■', put_after_search_token)
-            .replace("\\", "");
+            .replace('\\', "");
     }
 }
 
@@ -467,11 +463,11 @@ mod test {
     fn string_to_input_symbols_1() {
         let real: Vec<InputSymbol> = string_to_input_symbols("max(13,2)").unwrap();
         let expected: Vec<InputSymbol> = vec![
-            Opening(MaxOpening),
+            Opening(Max),
             Atomic(Constant(13)),
             Separator(Comma),
             Atomic(Constant(2)),
-            Closing(BClosing),
+            Closing(CloseBracket),
         ];
         assert_eq!(real, expected);
     }
@@ -507,13 +503,13 @@ mod test {
             assert_eq!(
                 symbols,
                 vec![
-                    Opening(MaxOpening),
+                    Opening(Max),
                     Atomic(Constant(1)),
                     Separator(Comma),
                     Atomic(Constant(2)),
                     Separator(Comma),
                     Atomic(Constant(3)),
-                    Closing(BClosing)
+                    Closing(CloseBracket)
                 ]
             );
             let graph = input_symbols_to_graph_seq(&symbols).unwrap();

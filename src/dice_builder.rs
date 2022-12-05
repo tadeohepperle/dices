@@ -7,6 +7,7 @@ use super::{
 use core::panic;
 use std::{
     collections::HashMap,
+    fmt::Display,
     ops::{Add, Mul},
 };
 pub type Value = i64;
@@ -131,13 +132,14 @@ impl DiceBuilder {
     /// constructs a string from the DiceBuilder that can be used to reconstruct an equivalent DiceBuilder from it.
     ///
     /// currently fails to construct a correct string in case dices with a non-1 minimum are present. This is because there is no string notation for dices with a non-1 minimum yet.
-    pub fn to_string(&self) -> String {
+    pub fn reconstruct_string(&self) -> String {
         match self {
             DiceBuilder::Constant(i) => i.to_string(),
             DiceBuilder::FairDie { min, max } => match *min == 1 {
                 true => format!("d{max}"),
                 false => "".to_owned(), // this is currently a weak point where errors can occur
             },
+            // ugly code right now, too much repetition:
             DiceBuilder::SumCompound(v) => v
                 .iter()
                 .map(|f| f.to_string())
@@ -210,27 +212,7 @@ impl DiceBuilder {
                     DiceBuilder::ProductCompound(_) => |a, b| a * b,
                     DiceBuilder::MaxCompound(_) => std::cmp::max,
                     DiceBuilder::MinCompound(_) => std::cmp::min,
-                    DiceBuilder::DivisionCompound(_) => {
-                        |a: i64, b: i64| rounded_div::i64(a, b)
-
-                        // match b.cmp(&0) {
-                        //     std::cmp::Ordering::Less => -(a / -b),
-                        //     std::cmp::Ordering::Equal => 0, // or should be infinity? Idk
-                        //     std::cmp::Ordering::Greater => a / b,
-                        // }
-                    }
-
-                    // {
-                    //     if a == 0 {
-                    //         0
-                    //     } else {
-                    //         match if a >= 0 { b.cmp(&0) } else { (-b).cmp(&0) } {
-                    //             std::cmp::Ordering::Less => -((a - b - 1) / -b),
-                    //             std::cmp::Ordering::Equal => 0,
-                    //             std::cmp::Ordering::Greater => (a + b - 1) / b,
-                    //         }
-                    //     }
-                    // },
+                    DiceBuilder::DivisionCompound(_) => rounded_div::i64,
                     _ => panic!("unreachable by match"),
                 };
                 let hashmaps = vec
@@ -256,11 +238,17 @@ impl DiceBuilder {
     }
 }
 
+impl Display for DiceBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write! {f, "{}", self.reconstruct_string()}
+    }
+}
+
 fn convolute_hashmaps(
     hashmaps: &Vec<DistributionHashMap>,
     operation: fn(Value, Value) -> Value,
 ) -> DistributionHashMap {
-    if hashmaps.len() == 0 {
+    if hashmaps.is_empty() {
         panic!("cannot convolute hashmaps from a zero element vector");
     }
     let mut convoluted_h = hashmaps[0].clone();
@@ -294,7 +282,7 @@ fn convolute_two_hashmaps(
 }
 
 fn sample_sum_convolute_hashmaps(hashmaps: &Vec<DistributionHashMap>) -> DistributionHashMap {
-    if hashmaps.len() == 0 {
+    if hashmaps.is_empty() {
         panic!("cannot convolute hashmaps from a zero element vector");
     }
     let mut convoluted_h = hashmaps[0].clone();

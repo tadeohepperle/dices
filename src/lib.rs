@@ -133,8 +133,7 @@ mod tests {
     fn test_division() {
         let d1 = Dice::build_from_string("d6/2").unwrap();
         let d2 = Dice::build_from_string("d3").unwrap();
-        dbg!(&d1.distribution);
-        // assert_eq!(d1.distribution, d2.distribution);
+        assert_eq!(d1.distribution, d2.distribution);
     }
 
     #[test]

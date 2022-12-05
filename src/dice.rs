@@ -39,7 +39,7 @@ use super::dice_builder::{AggrValue, Prob, Value};
 /// The probabilities are of type [`BigFraction`](fraction::BigFraction) from the [`fraction`](fraction) crate.
 /// This allows for precise probabilites with infinite precision, at the cost of some slower operations compared to floats, but avoids pitfalls like floating point precision errors.
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Dice {
     /// a string that can be used to recreate the [`DiceBuilder`] that the [`Dice`] was created from.
     pub builder_string: String,
@@ -113,7 +113,7 @@ impl Dice {
                     if prob > *p {
                         mode = Some((vec![val], prob));
                     } else if prob == *p {
-                        let newvec: Vec<Value> = [val].iter().chain(old_vec).map(|&x| x).collect();
+                        let newvec: Vec<Value> = [val].iter().chain(old_vec).copied().collect();
                         mode = Some((newvec, prob));
                     }
                 }
@@ -232,12 +232,12 @@ impl Dice {
 
     /// probability that a number sampled from `self` is greater than or equal to `value`
     pub fn prob_gte(&self, value: Value) -> Prob {
-        return Prob::one() - self.prob_lt(value);
+        Prob::one() - self.prob_lt(value)
     }
 
     /// probability that a number sampled from `self` is greater than `value`
     pub fn prob_gt(&self, value: Value) -> Prob {
-        return Prob::one() - self.prob_lte(value);
+        Prob::one() - self.prob_lte(value)
     }
 
     /// returns prob_lt, prob_lte, prob, prob_gte, prob_gt in the [ProbAll] struct.
