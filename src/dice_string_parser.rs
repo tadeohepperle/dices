@@ -32,7 +32,8 @@ pub enum ClosingInputSymbol {
 pub enum OpeningInputSymbol {
     OpenBracket,
     Max,
-    MinOpening,
+    Min,
+    Abs,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -78,7 +79,8 @@ fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuilding
 
         match c {
             'M' => symbols.push(Opening(Max)),
-            'm' => symbols.push(Opening(MinOpening)),
+            'm' => symbols.push(Opening(Min)),
+            'A' => symbols.push(Opening(Abs)),
             '(' => symbols.push(Opening(OpenBracket)),
             ')' => symbols.push(Closing(CloseBracket)),
             ',' => symbols.push(Separator(Comma)),
@@ -174,6 +176,7 @@ enum GraphSeq {
     Min(Vec<GraphSeq>),
     Max(Vec<GraphSeq>),
     SampleSum(Vec<GraphSeq>),
+    Absolute(Box<GraphSeq>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -187,6 +190,7 @@ pub enum DiceBuildingError {
     MultipleOperatorsBehindEachOther,
     EmptySubSequence,
     InvalidCharacterInInput(char),
+    SeperatorsInsideAbsolute,
 }
 
 fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceBuildingError> {
@@ -238,10 +242,22 @@ fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceB
                             symbols_no_first_and_last,
                             Separator(Comma),
                         )?)),
-                        MinOpening => Ok(GraphSeq::Min(split_and_assemble(
+                        Min => Ok(GraphSeq::Min(split_and_assemble(
                             symbols_no_first_and_last,
                             Separator(Comma),
                         )?)),
+                        Abs => {
+                            let has_commas_inside = symbols_no_first_and_last
+                                .iter()
+                                .any(|e| *e == Separator(Comma));
+                            if has_commas_inside {
+                                return Err(DiceBuildingError::SeperatorsInsideAbsolute);
+                            } else {
+                                Ok(GraphSeq::Absolute(Box::new(input_symbols_to_graph_seq(
+                                    symbols_no_first_and_last,
+                                )?)))
+                            }
+                        }
                     }
                 }
                 _ => Err(DiceBuildingError::UnknownSyntaxError(symbols.to_vec())),
@@ -352,6 +368,7 @@ impl BracketAwareSplittable for &[InputSymbol] {
 fn graph_seq_to_factor(graph_seq: GraphSeq) -> DiceBuilder {
     match graph_seq {
         GraphSeq::Atomic(f) => f,
+
         GraphSeq::Add(vec) => DiceBuilder::SumCompound(
             vec.into_iter()
                 .map(graph_seq_to_factor)
@@ -382,6 +399,9 @@ fn graph_seq_to_factor(graph_seq: GraphSeq) -> DiceBuilder {
                 .map(graph_seq_to_factor)
                 .collect::<Vec<DiceBuilder>>(),
         ),
+        GraphSeq::Absolute(box graphseq) => {
+            DiceBuilder::Absolute(Box::new(graph_seq_to_factor(graphseq)))
+        }
     }
 }
 
@@ -389,7 +409,7 @@ mod string_utils {
     use regex::Regex;
 
     use super::DiceBuildingError;
-    const PERMITTED_CHARACTERS: &str = "minax(,)dw0123456789+-*/";
+    const PERMITTED_CHARACTERS: &str = "minaxbs(,)dw0123456789+-*/";
     pub fn clean_string(s: &str) -> Result<String, DiceBuildingError> {
         let mut new_s = String::new();
         for ch in s.to_lowercase().chars() {
@@ -405,8 +425,9 @@ mod string_utils {
         }
         let s = &mut new_s;
         s.retain(|c| PERMITTED_CHARACTERS.chars().into_iter().any(|c2| c == c2));
-        *s = s.replace("max(", "M");
-        *s = s.replace("min(", "m");
+        *s = s.replace("max(", "M"); // maximum
+        *s = s.replace("abs(", "A"); // absolute
+        *s = s.replace("min(", "m"); // minimum
         *s = s.replace('w', "d");
 
         // 3d6 => 3xd6

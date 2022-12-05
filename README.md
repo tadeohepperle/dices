@@ -80,7 +80,7 @@ let nums = dice.roll_many(10);
 
 # Syntax Examples:
 
-Some exaple strings that can be passed into the `DiceBuilder::from_string(input)` function
+Some example strings that can be passed into the `DiceBuilder::from_string(input)` function
 
 3 six-sided dice:
 
@@ -124,5 +124,5 @@ This [`crate`] uses the [`BigFraction`](fraction::BigFraction) data type from th
 This is quite nice because it allows for precise probabilities with infinite precision.
 The drawback is that it is less efficient than using floats.
 
-While `"d100*d100"` takes about 100ms for me, something like "d10xd100" took 9.000 ms to finish calculating the probability distribution.
+While `"d100*d100"` takes about 100ms for me, something like "d10xd100" took 9000 ms to finish calculating the probability distribution.
 There is room for optimization.

@@ -73,6 +73,7 @@
 //!
 //!
 
+#![feature(box_patterns)]
 #![warn(missing_docs)]
 mod dice;
 mod dice_builder;

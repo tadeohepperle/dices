@@ -7,7 +7,7 @@ use super::{
 use core::panic;
 use std::{
     collections::HashMap,
-    fmt::Display,
+    fmt::{format, Display},
     ops::{Add, Mul},
 };
 pub type Value = i64;
@@ -81,6 +81,17 @@ pub enum DiceBuilder {
     ///
     /// ```
     SampleSumCompound(Vec<DiceBuilder>),
+    /// All negative values of the distribution become postive.
+    Absolute(Box<DiceBuilder>),
+    /// Specifies Exploding Dice.
+    /// For example an exploding d6 is when we roll a d6 and on a 6 roll it again and add it to the result.
+    /// For practical reasons we need an upper limit to such iterations because we do not have infinite memory nor computation power.
+    /// if no min_value is given, explosing happens on the maximum value of the distribution (e.g. 6 on a d6).
+    Explode {
+        dice_builder: Box<DiceBuilder>,
+        min_value: Option<Value>,
+        max_iterations: usize,
+    },
 }
 
 impl DiceBuilder {
@@ -174,6 +185,20 @@ impl DiceBuilder {
                     .collect::<Vec<String>>()
                     .join(",")
             ),
+            DiceBuilder::Explode {
+                dice_builder,
+                min_value,
+                max_iterations,
+            } => format!(
+                "explode({},{},{})",
+                dice_builder.to_string(),
+                match min_value {
+                    Some(i) => i.to_string(),
+                    None => "None".to_string(),
+                },
+                max_iterations
+            ),
+            DiceBuilder::Absolute(dice_builder) => format!("abs({})", dice_builder.to_string()),
         }
     }
 
@@ -221,6 +246,12 @@ impl DiceBuilder {
                     .collect::<Vec<DistributionHashMap>>();
                 convolute_hashmaps(&hashmaps, operation)
             }
+            DiceBuilder::Absolute(d) => absolute_hashmap(d.distribution_hashmap()),
+            DiceBuilder::Explode {
+                dice_builder,
+                min_value,
+                max_iterations,
+            } => todo!(),
         }
     }
 
@@ -327,6 +358,23 @@ fn sample_sum_convolute_two_hashmaps(
         merge_hashmaps(&mut total_hashmap, &count_hashmap);
     }
     total_hashmap
+}
+
+fn absolute_hashmap(hashmap: DistributionHashMap) -> DistributionHashMap {
+    let mut total_hashmap = DistributionHashMap::new();
+
+    for (value, p) in hashmap.into_iter() {
+        let target = if value < 0 { -value } else { value };
+        match total_hashmap.entry(target) {
+            std::collections::hash_map::Entry::Occupied(mut e) => {
+                *e.get_mut() += p;
+            }
+            std::collections::hash_map::Entry::Vacant(_) => {
+                total_hashmap.insert(target, p);
+            }
+        }
+    }
+    return total_hashmap;
 }
 
 impl Mul for Box<DiceBuilder> {
