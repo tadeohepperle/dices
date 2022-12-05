@@ -1,4 +1,4 @@
 {
   /* use ["wasm"] or ["nowasm"] or "default" to tell the rust analyzer which code to look at*/
-  "rust-analyzer.cargo.features": ["wasm"]
+  "rust-analyzer.cargo.features": ["nowasm"]
 }

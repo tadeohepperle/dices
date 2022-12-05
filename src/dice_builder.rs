@@ -43,6 +43,8 @@ pub enum DiceBuilder {
     SumCompound(Vec<DiceBuilder>),
     /// the product of multiple [DiceBuilder] instances, like: d6 * 3 * d20
     ProductCompound(Vec<DiceBuilder>),
+    /// the division of multiple [DiceBuilder] instances, left-associative, rounded up to integers like: d6 / 2 = d3
+    DivisionCompound(Vec<DiceBuilder>),
     /// the maximum of multiple [DiceBuilder] instances, like: max(d6,3,d20)
     MaxCompound(Vec<DiceBuilder>),
     /// the minimum of multiple [DiceBuilder] instances, like: min(d6,3,d20)
@@ -146,6 +148,11 @@ impl DiceBuilder {
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
                 .join("*"),
+            DiceBuilder::DivisionCompound(v) => v
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join("/"),
             DiceBuilder::SampleSumCompound(v) => v
                 .iter()
                 .map(|f| f.to_string())
@@ -195,6 +202,7 @@ impl DiceBuilder {
             }
             DiceBuilder::SumCompound(vec)
             | DiceBuilder::ProductCompound(vec)
+            | DiceBuilder::DivisionCompound(vec)
             | DiceBuilder::MaxCompound(vec)
             | DiceBuilder::MinCompound(vec) => {
                 let operation = match self {
@@ -202,6 +210,8 @@ impl DiceBuilder {
                     DiceBuilder::ProductCompound(_) => |a, b| a * b,
                     DiceBuilder::MaxCompound(_) => std::cmp::max,
                     DiceBuilder::MinCompound(_) => std::cmp::min,
+                    DiceBuilder::DivisionCompound(_) => |a, b| (a + b - 1) / b,
+
                     _ => panic!("unreachable by match"),
                 };
                 let hashmaps = vec

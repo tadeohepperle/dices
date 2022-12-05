@@ -15,6 +15,7 @@ pub enum OperatorInputSymbol {
     Add,
     Mul,
     SampleSum,
+    Div,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -58,8 +59,7 @@ pub fn string_to_factor(input: &str) -> Result<DiceBuilder, DiceBuildingError> {
 }
 
 fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuildingError> {
-    let mut input = input.to_owned();
-    string_utils::clean_string(&mut input);
+    let input = string_utils::clean_string(input)?;
     let mut symbols: Vec<InputSymbol> = vec![];
 
     let mut char_iterator = input.chars();
@@ -85,6 +85,7 @@ fn string_to_input_symbols(input: &str) -> Result<Vec<InputSymbol>, DiceBuilding
             '*' => symbols.push(Operator(Mul)),
             'x' => symbols.push(Operator(SampleSum)),
             '+' => symbols.push(Operator(Add)),
+            '/' => symbols.push(Operator(Div)),
             'd' => {
                 let mut num_char_vec: Vec<char> = vec![];
                 'inner: loop {
@@ -170,6 +171,7 @@ enum GraphSeq {
     Atomic(DiceBuilder),
     Add(Vec<GraphSeq>),
     Mul(Vec<GraphSeq>),
+    Div(Vec<GraphSeq>),
     Min(Vec<GraphSeq>),
     Max(Vec<GraphSeq>),
     SampleSum(Vec<GraphSeq>),
@@ -177,21 +179,15 @@ enum GraphSeq {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DiceBuildingError {
-    GraphSeqWithoutVec,
-    AddSymbolInNonAddSequence,
-    MulSymbolWithoutAnElementInCurrentSequence,
-    SampleSumSymbolWithoutAnElementInCurrentSequence,
-    SequenceHierarchyEmpty,
-    CommaSymbolInAddSequence,
     UnknownSyntaxError(Vec<InputSymbol>),
     OneInputSymbolButNotAtomic(InputSymbol),
     NonDigitSymbolAfterDiceD,
     NonDigitNumericCharacter,
-    SampleSumConvolutionError(String),
     /// more closing brackets than opening brackets up to one point
     NegativeScope,
     MultipleOperatorsBehindEachOther,
     EmptySubSequence,
+    InvalidCharacterInInput(char),
 }
 
 fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceBuildingError> {
@@ -208,13 +204,17 @@ fn input_symbols_to_graph_seq(symbols: &[InputSymbol]) -> Result<GraphSeq, DiceB
             };
         }
         _ => {
-            // precedence of operators (high -> low):  x -> * -> +
+            // precedence of operators (high -> low):  x -> * -> / -> +
             // example: 4+3*d3xd2 is  4+(3*(d3xd2))
             // check for operators in ascending precedence to build sequence by splitting on operators:
 
             // consists of adds in global scope:
             if global_scope_contains_operator(symbols, Add)? {
                 return Ok(GraphSeq::Add(split_and_assemble(symbols, Operator(Add))?));
+            }
+
+            if global_scope_contains_operator(symbols, Div)? {
+                return Ok(GraphSeq::Div(split_and_assemble(symbols, Operator(Div))?));
             }
 
             if global_scope_contains_operator(symbols, Mul)? {
@@ -381,14 +381,33 @@ fn graph_seq_to_factor(graph_seq: GraphSeq) -> DiceBuilder {
                 .map(graph_seq_to_factor)
                 .collect::<Vec<DiceBuilder>>(),
         ),
+        GraphSeq::Div(vec) => DiceBuilder::DivisionCompound(
+            vec.into_iter()
+                .map(graph_seq_to_factor)
+                .collect::<Vec<DiceBuilder>>(),
+        ),
     }
 }
 
 mod string_utils {
     use regex::Regex;
-    const PERMITTED_CHARACTERS: &str = "minax(,)dw0123456789+-*";
-    pub fn clean_string(s: &mut String) {
-        *s = s.to_lowercase();
+
+    use super::DiceBuildingError;
+    const PERMITTED_CHARACTERS: &str = "minax(,)dw0123456789+-*/";
+    pub fn clean_string(s: &str) -> Result<String, DiceBuildingError> {
+        let mut new_s = String::new();
+        for ch in s.to_lowercase().chars() {
+            if PERMITTED_CHARACTERS
+                .chars()
+                .into_iter()
+                .any(|ch2| ch2 == ch)
+            {
+                new_s.push(ch);
+            } else if !ch.is_whitespace() {
+                return Err(DiceBuildingError::InvalidCharacterInInput(ch));
+            }
+        }
+        let s = &mut new_s;
         s.retain(|c| PERMITTED_CHARACTERS.chars().into_iter().any(|c2| c == c2));
         *s = s.replace("max(", "M");
         *s = s.replace("min(", "m");
@@ -408,6 +427,7 @@ mod string_utils {
 
         // 3(...) => 3x(...),   d3(d3) => d3x(d3)
         add_token_in_string(s, r"", r"(\d|d)", r"\(", "", "x");
+        Ok(new_s)
     }
 
     fn add_token_in_string(
@@ -437,9 +457,9 @@ mod test {
 
     #[test]
     fn clean_string_test() {
-        let mut input = r#" max(3w6)(3+4)+d3(d3)-3()  min(3,4)       "#.to_owned();
+        let input = r#" max(3w6)(3+4)+d3(d3)-3()  min(3,4)       "#.to_owned();
 
-        string_utils::clean_string(&mut input);
+        let input = string_utils::clean_string(&input).unwrap();
         dbg!(&input);
         assert_eq!("M3xd6)x(3+4)+d3x(d3)-3x()xm3,4)", input);
     }
@@ -455,6 +475,7 @@ mod test {
         ];
         assert_eq!(real, expected);
     }
+
     #[test]
     fn string_to_input_symbols_2() {
         let real: Vec<InputSymbol> = string_to_input_symbols("4 d32 - 3").unwrap();
@@ -507,6 +528,7 @@ mod test {
 
     mod input_to_factor {
         use crate::dice_builder::AggrValue;
+        use crate::dice_string_parser::DiceBuildingError;
         use crate::{
             dice_builder::DiceBuilder,
             dice_string_parser::{graph_seq_to_factor, string_to_factor, GraphSeq},
@@ -530,13 +552,19 @@ mod test {
 
         #[test]
         fn string_to_factor_test() {
-            let factor = string_to_factor("max(1 :,2,3)  ").unwrap();
+            let factor = string_to_factor("max(1,2,3)  ").unwrap();
             let expected_factor = DiceBuilder::MaxCompound(vec![
                 DiceBuilder::Constant(1),
                 DiceBuilder::Constant(2),
                 DiceBuilder::Constant(3),
             ]);
             assert_eq!(factor, expected_factor);
+
+            let factor_failed = string_to_factor("max(1:,2,3)  ");
+            assert_eq!(
+                factor_failed,
+                Err(DiceBuildingError::InvalidCharacterInInput(':'))
+            );
         }
 
         #[test]
